@@ -24,6 +24,7 @@ static int32 state_entry_time = 0;      // Time when state was entered
 static int32 line_lost_time = 0;        // Time when line was lost
 static int32 nav_start_time = 0;        // Navigation start time
 static int16 reverse_distance_mm = 0;   // Distance traveled in reverse
+static int16 last_mm = 0;               // Last ultrasonic reading for reverse tracking
 static int1 station_detected = FALSE;   // Station proximity flag
 static int1 end_detected = FALSE;       // End point proximity flag
 
@@ -111,23 +112,26 @@ void state_follow_line_update(void) {
         return;
     }
     
-    // Check for T-junction or station approach
-    if (sensors_is_tjunction(pattern)) {
-        nav_direction = NAV_RIGHT;  // Default: turn right at T-junction
-        fsm_transition(STATE_STATION);
-        return;
-    }
-    
-    // Check ultrasonic for station detection
+    // Check ultrasonic for station/end detection
     int8 distance = ultrasonic_read_cm();
-    if (distance != ULTRA_ERROR && distance <= STOP_CM_STATION + 3) {
-        station_detected = TRUE;
-        fsm_transition(STATE_STATION);
+    
+    // Check for T-junction AND close distance = Station
+    if (sensors_is_tjunction(pattern)) {
+        if (distance != ULTRA_ERROR && distance <= STOP_CM_STATION + 3 && !ball_grabbed) {
+            // This is Station (T-junction + close + no ball yet)
+            station_detected = TRUE;
+            nav_direction = NAV_RIGHT;  // Will turn right after grabbing
+            fsm_transition(STATE_STATION);
+            return;
+        }
+        // If T-junction but not close or already have ball, just turn right
+        nav_direction = NAV_RIGHT;
+        fsm_transition(STATE_NAVIGATION);
         return;
     }
     
-    // Check for END point detection
-    if (distance != ULTRA_ERROR && distance <= STOP_CM_END) {
+    // Check for END point detection (close distance + already have ball)
+    if (distance != ULTRA_ERROR && distance <= STOP_CM_END && ball_grabbed) {
         end_detected = TRUE;
         fsm_transition(STATE_END);
         return;
@@ -197,11 +201,12 @@ void state_station_stop_entry(void) {
 }
 
 void state_station_stop_update(void) {
-    // Wait for grab duration
-    if ((ms_tick - state_entry_time) >= GRAB_MS) {
-        ball_grabbed = TRUE;
+    // Wait for grab duration OR ball sensor detects ball
+    if ((ms_tick - state_entry_time) >= GRAB_MS || ball_grabbed) {
+        ball_grabbed = TRUE;  // Ensure flag is set
         sensors_led_action(TRUE);
         fsm_save_checkpoint(CP_AFTER_STATION);
+        nav_direction = NAV_RIGHT;  // Set direction before transition
         fsm_transition(STATE_STATION_BACK);
     }
 }
@@ -216,6 +221,7 @@ void state_station_stop_exit(void) {
 // ============================================================================
 void state_station_back_entry(void) {
     reverse_distance_mm = 0;
+    last_mm = 0;  // Reset tracking variable
     motor_reverse(SLOW_PWM);
 }
 
@@ -224,7 +230,6 @@ void state_station_back_update(void) {
     int16 current_mm = ultrasonic_read_mm();
     
     // Simple distance tracking (accumulate change)
-    static int16 last_mm = 0;
     if (last_mm == 0) {
         last_mm = current_mm;
     }
@@ -236,7 +241,7 @@ void state_station_back_update(void) {
     
     // Check if reversed enough
     if (reverse_distance_mm >= REVERSE_MM) {
-        last_mm = 0;
+        last_mm = 0;  // Reset for next time
         fsm_transition(STATE_NAVIGATION);
     }
 }

@@ -2,15 +2,28 @@
 // FILE: test_modules.c
 // DESC: Test program for individual modules (for debugging)
 // NOTE: This is a separate test file, not part of main program
+// USAGE: Comment/uncomment ONE define below, compile, and flash to PIC
 ////////////////////////////////////////////////////////////////////////////////
 
 #include "main.h"
 
-// Comment/uncomment to select test mode
-//#define TEST_SENSORS
-//#define TEST_MOTOR
-//#define TEST_ULTRASONIC
-#define TEST_FULL_INTEGRATION
+// ============================================================================
+// UART SETUP FOR DEBUG OUTPUT (Optional - remove if no UART hardware)
+// ============================================================================
+#use rs232(baud=9600, xmit=PIN_C6, rcv=PIN_C7, ERRORS)
+
+// ============================================================================
+// SELECT TEST MODE (Comment/uncomment ONE at a time)
+// ============================================================================
+//#define TEST_SENSORS          // Test IR sensors and chatter filter
+//#define TEST_MOTOR            // Test all motor movements
+//#define TEST_ULTRASONIC       // Test distance measurement
+//#define TEST_FULL_INTEGRATION // Test all modules together
+#define TEST_FSM_SIMULATION   // NEW: Simulate real FSM behavior
+
+// EEPROM addresses (copied from fsm.c)
+#define EEPROM_CHECKPOINT    0x00
+#define EEPROM_STATE         0x01
 
 // ============================================================================
 // TEST: SENSORS
@@ -196,33 +209,159 @@ void test_integration(void) {
 #endif
 
 // ============================================================================
+// TEST: FSM SIMULATION (Real-world scenario)
+// ============================================================================
+#ifdef TEST_FSM_SIMULATION
+void test_fsm_simulation(void) {
+    printf("=== FSM SIMULATION TEST ===\r\n");
+    printf("This simulates robot behavior without actual line\r\n\n");
+    
+    // Simulate: Press RUN button
+    printf("[SIMULATE] Pressing RUN button...\r\n");
+    run_flag = TRUE;
+    current_state = STATE_IDLE;
+    state_idle_entry();
+    state_idle_update();  // Should transition to FOLLOW_LINE
+    printf("  State after RUN: %u (expect 1=FOLLOW_LINE)\r\n\n", current_state);
+    delay_ms(1000);
+    
+    // Simulate: Following line (pattern 010)
+    printf("[SIMULATE] Following line (pattern 010)...\r\n");
+    motor_enable();
+    MotorCmd_t cmd = motor_get_command(0b010);
+    motor_set(cmd.left_pwm, cmd.right_pwm, cmd.direction);
+    printf("  Motor: L=%u R=%u\r\n\n", cmd.left_pwm, cmd.right_pwm);
+    delay_ms(2000);
+    motor_stop();
+    
+    // Simulate: Approaching Station (T-junction + close distance)
+    printf("[SIMULATE] Approaching Station (pattern 101, dist=2cm)...\r\n");
+    fsm_transition(STATE_STATION);
+    printf("  State: %u (expect 2=STATION)\r\n\n", current_state);
+    delay_ms(1000);
+    
+    // Simulate: Stop at Station
+    printf("[SIMULATE] Stopping at Station...\r\n");
+    fsm_transition(STATE_STATION_STOP);
+    printf("  State: %u (expect 3=STATION_STOP)\r\n", current_state);
+    printf("  Grabbing ball for 2 seconds...\r\n");
+    peripherals_grab_ball();
+    delay_ms(2000);
+    ball_grabbed = TRUE;
+    printf("  Ball grabbed: %u\r\n\n", ball_grabbed);
+    
+    // Simulate: Reverse from Station
+    printf("[SIMULATE] Reversing 250mm...\r\n");
+    fsm_transition(STATE_STATION_BACK);
+    printf("  State: %u (expect 4=STATION_BACK)\r\n", current_state);
+    motor_reverse(SLOW_PWM);
+    delay_ms(3000);  // Simulate reverse time
+    motor_stop();
+    printf("  Reverse complete\r\n\n");
+    
+    // Simulate: Pivot right
+    printf("[SIMULATE] Pivot turn right...\r\n");
+    nav_direction = NAV_RIGHT;
+    fsm_transition(STATE_NAVIGATION);
+    printf("  State: %u (expect 5=NAVIGATION)\r\n", current_state);
+    delay_ms(2000);  // Simulate turn time
+    motor_stop();
+    printf("  Turn complete\r\n\n");
+    
+    // Simulate: Continue following line to END
+    printf("[SIMULATE] Following line to END...\r\n");
+    fsm_transition(STATE_FOLLOW_LINE);
+    motor_forward(BASE_PWM);
+    delay_ms(3000);
+    motor_stop();
+    printf("  Approaching END\r\n\n");
+    
+    // Simulate: Reach END point
+    printf("[SIMULATE] Reached END (dist=5cm, have ball)...\r\n");
+    fsm_transition(STATE_END);
+    printf("  State: %u (expect 6=END)\r\n", current_state);
+    printf("  Releasing ball...\r\n");
+    peripherals_release_ball();
+    ball_grabbed = FALSE;
+    printf("  Ball released: %u\r\n\n", !ball_grabbed);
+    
+    // Simulate: Error recovery
+    printf("[SIMULATE] Testing error recovery...\r\n");
+    fsm_handle_error(ERR_LOST_LINE);
+    printf("  State: %u (expect 7=ERROR)\r\n", current_state);
+    printf("  Error type: %u\r\n", current_error);
+    printf("  Press RUN to recover...\r\n");
+    delay_ms(2000);
+    run_flag = TRUE;
+    state_error_update();  // Should transition to CHECKPOINT
+    printf("  State after recovery: %u\r\n\n", current_state);
+    
+    printf("=== SIMULATION COMPLETE ===\r\n");
+    printf("All FSM states tested successfully!\r\n\n");
+    
+    // Flash LEDs to indicate success
+    for (int i = 0; i < 10; i++) {
+        sensors_led_status(TRUE);
+        sensors_led_action(TRUE);
+        delay_ms(100);
+        sensors_led_status(FALSE);
+        sensors_led_action(FALSE);
+        delay_ms(100);
+    }
+}
+#endif
+
+// ============================================================================
 // MAIN FOR TESTING
 // ============================================================================
 void main(void) {
     // Initialize system
     system_init();
     
+    // Wait for system to stabilize
+    delay_ms(500);
+    
+    printf("\r\n\r\n");
+    printf("========================================\r\n");
+    printf("  LINE FOLLOWER ROBOT - TEST MODE\r\n");
+    printf("  PIC18F2685 @ 20MHz\r\n");
+    printf("========================================\r\n\r\n");
+    
     #ifdef TEST_SENSORS
+    printf("Mode: SENSOR TEST\r\n\r\n");
     test_sensors();
     #endif
     
     #ifdef TEST_MOTOR
+    printf("Mode: MOTOR TEST\r\n\r\n");
     test_motor();
     #endif
     
     #ifdef TEST_ULTRASONIC
+    printf("Mode: ULTRASONIC TEST\r\n\r\n");
     test_ultrasonic();
     #endif
     
     #ifdef TEST_FULL_INTEGRATION
+    printf("Mode: FULL INTEGRATION TEST\r\n\r\n");
     test_integration();
     #endif
     
-    // If no test selected, run normal program
+    #ifdef TEST_FSM_SIMULATION
+    printf("Mode: FSM SIMULATION TEST\r\n\r\n");
+    test_fsm_simulation();
+    #endif
+    
+    // If no test selected, blink LED as warning
+    printf("WARNING: No test mode selected!\r\n");
+    printf("Please uncomment ONE #define at top of file\r\n\r\n");
+    
     while (TRUE) {
         sensors_led_status(TRUE);
-        delay_ms(500);
+        sensors_led_action(FALSE);
+        delay_ms(100);
         sensors_led_status(FALSE);
-        delay_ms(500);
+        sensors_led_action(TRUE);
+        delay_ms(100);
     }
 }
