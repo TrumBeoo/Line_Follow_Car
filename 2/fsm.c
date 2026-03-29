@@ -16,6 +16,7 @@ static uint32_t lost_line_time = 0;        // Timestamp when line was lost
 static uint32_t operation_start_time = 0;  // Generic operation timer
 static bool turn_complete = false;         // Turn completion flag
 static uint8_t station_pass_count = 0;     // Count stations passed
+static uint16_t backup_start_distance = 0; // Distance at start of backup
 
 // ============================================================================
 // STATE TRANSITION CONTROLLER
@@ -34,10 +35,12 @@ void transition(SystemState_t new_state) {
         case STATE_STATION_STOP:  station_stop_exit(); break;
         case STATE_STATION_BACK:  station_back_exit(); break;
         case STATE_NAVIGATION:    navigation_exit(); break;
+        case STATE_END_APPROACH:  end_approach_exit(); break;
         case STATE_END:           end_exit(); break;
         case STATE_ERROR:         error_exit(); break;
         case STATE_CHECKPOINT_1:  checkpoint1_exit(); break;
         case STATE_CHECKPOINT_2:  checkpoint2_exit(); break;
+        case STATE_CHECKPOINT_3:  checkpoint3_exit(); break;
     }
     
     // Update state
@@ -52,10 +55,12 @@ void transition(SystemState_t new_state) {
         case STATE_STATION_STOP:  station_stop_entry(); break;
         case STATE_STATION_BACK:  station_back_entry(); break;
         case STATE_NAVIGATION:    navigation_entry(); break;
+        case STATE_END_APPROACH:  end_approach_entry(); break;
         case STATE_END:           end_entry(); break;
         case STATE_ERROR:         error_entry(); break;
         case STATE_CHECKPOINT_1:  checkpoint1_entry(); break;
         case STATE_CHECKPOINT_2:  checkpoint2_entry(); break;
+        case STATE_CHECKPOINT_3:  checkpoint3_entry(); break;
     }
 }
 
@@ -84,6 +89,8 @@ void idle_update(void) {
             transition(STATE_CHECKPOINT_1);
         } else if(checkpoint_state == 2) {
             transition(STATE_CHECKPOINT_2);
+        } else if(checkpoint_state == 3) {
+            transition(STATE_CHECKPOINT_3);
         }
     }
 }
@@ -154,9 +161,9 @@ void follow_line_update(void) {
     // Check ultrasonic for station or END
     uint8_t distance = hcsr04_read_cm();
     if(distance != TIMEOUT_CM) {
-        if(distance <= STOP_CM_END && station_pass_count >= 1) {
-            // At END point after passing station
-            transition(STATE_END);
+        if(distance <= APPROACH_CM_END && station_pass_count >= 1) {
+            // Approaching END point after passing station
+            transition(STATE_END_APPROACH);
         } else if(distance <= STOP_CM_STATION) {
             // At station
             transition(STATE_STATION);
@@ -181,7 +188,7 @@ void station_update(void) {
     // Continuously measure distance
     uint8_t distance = hcsr04_read_cm();
     
-    // Stop when very close (≤2cm)
+    // Stop when very close (≤3cm)
     if(distance <= STOP_CM_STATION && distance != TIMEOUT_CM) {
         transition(STATE_STATION_STOP);
         return;
@@ -229,24 +236,45 @@ void station_stop_exit(void) {
 }
 
 // ============================================================================
-// STATE: STATION_BACK - Backing up 250mm from station
+// STATE: STATION_BACK - Backing up 250mm from station using ultrasonic
 // ============================================================================
 
 void station_back_entry(void) {
+    // Measure initial distance
+    backup_start_distance = hcsr04_read_cm();
+    if(backup_start_distance == TIMEOUT_CM) {
+        backup_start_distance = 0;  // Fallback to time-based
+    }
+    
     operation_start_time = ms_tick;
     motor_reverse(BACK_PWM);
 }
 
 void station_back_update(void) {
-    // Backup for estimated time (250mm at BACK_PWM ≈ 500ms)
-    // Use ultrasonic to measure distance backed up
-    if((ms_tick - operation_start_time) >= BACK_DELAY_MS) {
+    // Method 1: Use ultrasonic to measure distance backed up
+    uint8_t current_distance = hcsr04_read_cm();
+    
+    if(current_distance != TIMEOUT_CM && backup_start_distance != 0) {
+        // Calculate distance traveled
+        uint16_t distance_backed = (current_distance > backup_start_distance) ? 
+                                   (current_distance - backup_start_distance) * 10 : 0;  // Convert cm to mm
+        
+        if(distance_backed >= BACK_DISTANCE_MM) {
+            transition(STATE_NAVIGATION);
+            return;
+        }
+    }
+    
+    // Method 2: Fallback to time-based (if ultrasonic fails)
+    // At BACK_PWM speed, estimate ~500mm/s, so 250mm ≈ 500ms
+    if((ms_tick - operation_start_time) >= 500) {
         transition(STATE_NAVIGATION);
     }
 }
 
 void station_back_exit(void) {
     motor_stop();
+    backup_start_distance = 0;
 }
 
 // ============================================================================
@@ -293,6 +321,34 @@ void navigation_update(void) {
 }
 
 void navigation_exit(void) {
+    motor_stop();
+}
+
+// ============================================================================
+// STATE: END_APPROACH - Approaching END point, move forward 200-500ms
+// ============================================================================
+
+void end_approach_entry(void) {
+    // Slow down and continue forward to make contact
+    motor_forward(BASE_PWM / 3);  // Slow speed ~33%
+    operation_start_time = ms_tick;
+}
+
+void end_approach_update(void) {
+    // Continue forward for END_APPROACH_MS (200-500ms range)
+    if((ms_tick - operation_start_time) >= END_APPROACH_MS) {
+        transition(STATE_END);
+        return;
+    }
+    
+    // Also check if very close (≤5cm)
+    uint8_t distance = hcsr04_read_cm();
+    if(distance != TIMEOUT_CM && distance <= STOP_CM_END) {
+        transition(STATE_END);
+    }
+}
+
+void end_approach_exit(void) {
     motor_stop();
 }
 
@@ -420,5 +476,24 @@ void checkpoint2_update(void) {
 }
 
 void checkpoint2_exit(void) {
+    // Nothing
+}
+
+// ============================================================================
+// STATE: CHECKPOINT_3 - Resume from checkpoint 3 (after navigation)
+// ============================================================================
+
+void checkpoint3_entry(void) {
+    led_status_on();
+    checkpoint_state = 3;
+    station_pass_count = 1;  // Already passed station and navigation
+}
+
+void checkpoint3_update(void) {
+    // Position at checkpoint 3, resume heading to END
+    transition(STATE_FOLLOW_LINE);
+}
+
+void checkpoint3_exit(void) {
     // Nothing
 }

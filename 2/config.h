@@ -90,18 +90,20 @@
 #define CHATTER_N      3         // Number of consecutive samples required
 
 // Ultrasonic thresholds (cm)
-#define STOP_CM_STATION    2     // Stop distance at station
+#define STOP_CM_STATION    3     // Stop distance at station (<3cm as required)
 #define STOP_CM_END        5     // Stop distance at END point
+#define APPROACH_CM_END    10    // Start approach phase at END
 #define TIMEOUT_CM         255   // Timeout return value
 
 // Timing constants (milliseconds)
 #define GRAB_MS            2000  // Grab ball duration
 #define DROP_MS            2000  // Drop ball duration  
-#define BACK_DELAY_MS      250   // Backup distance estimation (250mm ≈ 0.5s at BACK_PWM)
+#define BACK_DISTANCE_MM   250   // Backup distance in millimeters
 #define CROSS_DELAY_MS     150   // Time to cross intersection straight
 #define TURN_DELAY_MS      200   // Minimum turn duration before checking sensor
 #define LOST_TIMEOUT_MS    500   // Max time to maintain direction when line lost
 #define DEBOUNCE_MS        50    // Button debounce time
+#define END_APPROACH_MS    350   // Time to move forward at END (200-500ms range)
 
 // Checkpoint management
 #define NUM_CHECKPOINTS    3     // Total number of checkpoints

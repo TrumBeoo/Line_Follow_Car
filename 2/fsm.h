@@ -21,10 +21,12 @@ typedef enum {
     STATE_STATION_STOP,      // Stopped at station, grabbing ball
     STATE_STATION_BACK,      // Backing up from station
     STATE_NAVIGATION,        // Handling T-junction / intersection turns  
+    STATE_END_APPROACH,      // Approaching END point (slow down)
     STATE_END,               // At END point, dropping ball
     STATE_ERROR,             // Error recovery state
     STATE_CHECKPOINT_1,      // Checkpoint 1 recovery
-    STATE_CHECKPOINT_2       // Checkpoint 2 recovery
+    STATE_CHECKPOINT_2,      // Checkpoint 2 recovery
+    STATE_CHECKPOINT_3       // Checkpoint 3 recovery
 } SystemState_t;
 
 // ============================================================================
@@ -76,6 +78,11 @@ void navigation_entry(void);
 void navigation_update(void);
 void navigation_exit(void);
 
+// STATE_END_APPROACH
+void end_approach_entry(void);
+void end_approach_update(void);
+void end_approach_exit(void);
+
 // STATE_END  
 void end_entry(void);
 void end_update(void);
@@ -95,5 +102,10 @@ void checkpoint1_exit(void);
 void checkpoint2_entry(void);
 void checkpoint2_update(void);
 void checkpoint2_exit(void);
+
+// STATE_CHECKPOINT_3
+void checkpoint3_entry(void);
+void checkpoint3_update(void);
+void checkpoint3_exit(void);
 
 #endif // FSM_H

@@ -296,6 +296,10 @@ void main(void) {
                 navigation_update();
                 break;
                 
+            case STATE_END_APPROACH:
+                end_approach_update();
+                break;
+                
             case STATE_END:
                 end_update();
                 break;
@@ -310,6 +314,10 @@ void main(void) {
                 
             case STATE_CHECKPOINT_2:
                 checkpoint2_update();
+                break;
+                
+            case STATE_CHECKPOINT_3:
+                checkpoint3_update();
                 break;
                 
             default:

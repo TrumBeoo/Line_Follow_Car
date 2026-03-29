@@ -1,0 +1,161 @@
+I - Ý TƯỞNG ĐIỀU KHIỂN
+1. Go straight/Đi thẳng
+When the vehicle encounters a straight section (sensor = 010), both motors rotate at the same speed. If there is a sign of deviation, the system activates the motor state to control the vehicle back to the center of the line, helping the vehicle move straight smoothly.
+Khi xe gặp đoạn thẳng (sensor = 010), hai động cơ quay cùng tốc độ, nếu có dấu hiệu lệch hệ thống kích hoạt trạng thái motor để điều khiển xe về chính giữa line giúp xe đi thẳng mượt mà.
+
+2. Line lose/Mất line
+When the vehicle encounters a line break (sensor = 000), the system does not immediately respond to the lost line but maintains the previous direction of movement for about 0.2–0.5s.
+Khi xe gặp đoạn đứt line (sensor = 000), hệ thống không xử lý mất line ngay mà duy trì hướng di chuyển trước đó trong khoảng thời gian 0.2–0.5s. 
+
+3. Three-way junction/Ngã 3
+At the Station, the car does not turn immediately but stops for 2s when the distance is <3 cm to pick up the ball. Then the car reverses 250 mm using the ultrasonic sensor (without using the line sensor), and then turns in place to the right. When it detects the line again, the car returns to the normal line-following state.
+Tại Station, xe không rẽ ngay mà dừng 2s khi khoảng cách <3 cm để lấy bi. Sau đó xe lùi 250mm bằng cảm biến siêu âm (không dùng cảm biến line), rồi quay tại chỗ sang phải. Khi dò lại được line, xe chuyển về trạng thái bám line bình thường.
+
+4. Station/Trạm lấy bi
+When the vehicle arrives at the Station, the ultrasonic sensor measures the distance; if it is <3 cm, the vehicle stops and activates the ball retrieval mechanism. After 2s, the vehicle reverses, then continues to handle three-way junction.
+Khi xe đến Station, cảm biến siêu âm đo khoảng cách; nếu <3 cm, xe dừng và kích hoạt cơ cấu lấy bi. Sau 2s, xe lùi lại, rồi tiếp tục xử lý ngã 3.
+
+5. Curve/Khúc cua
+Classify sensor states into light command levels (011) and strong command levels (001) to adjust speed, slow down to execute smooth turns.
+Phân loại trạng thái cảm biến thành các mức lệch nhẹ(011), lệch mạnh(001) để điều chỉnh tốc độ, giảm tốc để thực hiện cua mượt mà.
+
+6. Intersection/Ngã 4
+The intersection detection system activates when the sensor = 111. Then temporarily ignore the sensor signal and let the vehicle go straight for 100–200 ms to cross the intersection, then continue following the line normally.
+Hệ thống nhận diện ngã tư khi cảm biến = 111. Sau đó tạm bỏ qua tín hiệu cảm biến và cho xe đi thẳng trong 100–200 ms để vượt qua giao lộ, rồi tiếp tục bám line bình thường.
+
+7. END/Điểm thả bi
+When the car approaches the END point (≤ 5 cm), the system slows down and moves forward for an additional 200–500 ms to make contact and activate the ball release mechanism. Then the car stops, releases the ball for 2s, and resets to start a new cycle.
+Khi xe đến gần điểm END (≤ 5 cm), hệ thống giảm tốc và tiến thêm 200–500 ms để tiếp xúc và kích hoạt cơ cấu thả bi. Sau đó xe dừng, thả bi trong 2s và reset để bắt đầu chu trình mới.
+
+8. Checkpoint
+The system uses two physical push buttons to control the continuation of operation after an error occurs. The checkpoints (3 checkpoints) are managed through a state variable in the program. When the vehicle encounters an error, press STOP, reset the vehicle at the checkpoint, and press RUN, the system will automatically determine the position and continue performing the corresponding task.
+Hệ thống sử dụng hai nút nhấn vật lý để điều khiển việc tiếp tục hoạt động sau khi xảy ra lỗi. Các checkpoint(3 checkpoint) được quản lý thông qua biến trạng thái trong chương trình. Khi xe gặp lỗi nhấn STOP, đặt lại xe tại checkpoint và nhấn RUN, hệ thống sẽ tự động xác định vị trí và tiếp tục thực hiện nhiệm vụ.
+
+II - CẤU TRÚC THƯ MỤC
+1. Cấu trúc thư mục đề xuất
+Do hạn chế của IDE CCS trong việc quản lý thư mục con (như đã thảo luận trong lịch sử trò chuyện), phương án tốt nhất là để các file chính ở thư mục gốc hoặc khai báo đường dẫn rõ ràng:
+Project_Robot_DoLine/
+├── main.c                // Luồng thực thi chính và vòng lặp FSM [1, 4]
+├── main.h                // Header tổng quát bao gồm các thư viện chuẩn [5]
+├── config.h              // Cấu hình cầu chì (Fuses) và định nghĩa chân Pin Map [6, 7]
+├── fsm.c                 // Logic chi tiết của 9-10 trạng thái máy [8, 9]
+├── fsm.h                 // Khai báo kiểu dữ liệu SystemState_t và hàm transition [10, 11]
+├── motor.c               // Bảng tra cứu Lookup Table và điều khiển PWM motor [12, 13]
+├── motor.h               // Khai báo cấu trúc MotorCmd_t và các hằng số Base_PWM [14, 15]
+├── sensors.c             // Bộ lọc nhiễu Chatter và đọc pattern cảm biến IR [16, 17]
+├── sensors.h             // Khai báo hằng số CHATTER_N và hàm đọc sensor [18, 19]
+├── ultrasonic.c          // Hàm đo khoảng cách bằng siêu âm HC-SR04 [20]
+└── ultrasonic.h          // Khai báo hằng số STOP_CM cho trạm và điểm đích [15, 18]
+2. Vai trò chi tiết của từng file
+config.h: Tập trung toàn bộ cấu hình phần cứng. Bao gồm #device PIC18F2685, các #fuses HS, NOWDT, và định nghĩa chân như PIN_B4 cho Trig, PIN_B5 cho Echo
+
+fsm.c & fsm.h: Quản lý 9 trạng thái FSM (IDLE, FOLLOW_LINE, STATION, v.v.)
+ File này chứa hàm transition() để điều phối việc gọi các hàm entry(), update(), và exit() cho từng trạng thái
+
+motor.c & motor.h: Chứa Lookup Table 8 pattern (từ 000 đến 111) lưu trong bộ nhớ FLASH (const ROM) để tiết kiệm RAM
+ Triển khai hàm motor_set() để điều khiển driver TB8833 qua xung PWM 20kHz
+
+sensors.c & sensors.h: Triển khai thuật toán Chatter Filter N=3 mẫu liên tiếp
+ Nó giúp loại bỏ các xung nhiễu (spike) nhỏ hơn 3 chu kỳ lấy mẫu trước khi trả về pattern cho máy trạng thái
+
+ultrasonic.c & ultrasonic.h: Triển khai hàm hcsr04_read_cm() sử dụng phương pháp Polling (đợi xung Echo) hoặc Timer1 để tính toán khoảng cách
+ Quy định xe dừng khi khoảng cách ≤2cm tại Station và ≤5cm tại điểm END
+
+main.c:
+Gọi hàm khởi tạo set_Init() theo thứ tự bắt buộc: GPIO -> Timers -> PWM -> LEDs -> Interrupts
+
+Chứa vòng lặp while(1) thực hiện lệnh switch(current_state) để điều phối các hoạt động của robot dựa trên trạng thái hiện tại
+
+3. Lưu ý kỹ thuật quan trọng khi tạo file
+Thứ tự khởi tạo: Trong main.c, bạn phải đảm bảo gpio_init() được gọi đầu tiên để thiết lập ADCON1 = 0x0F (chế độ Digital) trước khi các cảm biến hoạt động
+
+Biến toàn cục: Các biến như ms_tick (đếm thời gian hệ thống) và current_state phải được khai báo volatile vì chúng được cập nhật trong ngắt hoặc thay đổi liên tục trong vòng lặp
+
+Tích hợp LED: Logic điều khiển 2 LED (RC0 cho Status và RC1 cho Action) nên được gộp vào file sensors.c hoặc một file peripheral riêng để báo hiệu quá trình Calibration hoặc lấy bi thành công
+
+III - HƯỚNG DẪN
+1. File config.h (Cấu hình phần cứng)
+Thiết lập cầu chì (Fuses): Cấu hình thạch anh ngoài chế độ HS (20MHz), tắt Watchdog Timer (WDT), tắt Low Voltage Programming (LVP)
+
+Định nghĩa chân (Pin Map): Sử dụng các lệnh #define để gán tên gợi nhớ cho toàn bộ các chân kết nối:
+Cảm biến IR: RA0 (SL), RA1 (SM), RA2 (SR)
+
+Driver TB6612: RC2 (PWMA), RC3 (PWMB), RB0 (AIN1), RB2 (BIN1), RB6 (STBY)
+
+Siêu âm HC-SR04: RB4 (Trig), RB5 (Echo)
+
+Ngoại vi khác: RC0 (LED1), RC1 (LED2), RC4 (Servo/Gắp bi), RC5 (Thả bi), RB7 (Nút bấm RUN)
+
+Hằng số hệ thống: Định nghĩa các giá trị như BASE_PWM (160), CHATTER_N (3), STOP_CM_STATION (2cm), STOP_CM_END (5cm), GRAB_MS (2000ms)
+
+2. File main.c & main.h (Luồng thực thi chính)
+Hàm set_Init(): Chứa logic khởi tạo toàn bộ hệ thống theo thứ tự bắt buộc:
+gpio_init(): Phải gọi đầu tiên để thiết lập ADCON1 = 0x0F (chuyển Port A sang Digital)
+
+Cấu hình các Timer (Timer0 cho nhịp tim, Timer1 cho siêu âm, Timer2 cho PWM)
+
+Bật ngắt toàn cục (GIE) và ngắt ngoại vi (PEIE) sau cùng
+
+Vòng lặp while(1): Đóng vai trò là bộ điều phối (Dispatcher) cho máy trạng thái. Sử dụng lệnh switch(current_state) để gọi hàm update() của trạng thái hiện tại
+
+Trình phục vụ ngắt (ISR):
+Ngắt Timer0: Tăng biến ms_tick mỗi 2ms. Xử lý logic nháy LED2 (non-blocking) và gọi hàm lọc nhiễu chartering() cho cảm biến IR
+
+Ngắt IOCB (Port B Change): Phát hiện nút nhấn tại chân RB7 để bật run_flag và nhận tín hiệu từ cảm biến bi tại RB3
+
+3. File fsm.c & fsm.h (Logic 9 trạng thái)
+Định nghĩa kiểu dữ liệu: Tạo enum SystemState_t cho 9 trạng thái từ IDLE đến END
+
+Hàm transition(next_state): Đảm bảo gọi hàm exit() của trạng thái cũ trước khi gọi entry() của trạng thái mới để dọn dẹp các cờ (flags)
+
+Logic chi tiết từng State:
+STATE_IDLE: Dừng motor, chờ nút bấm để set run_flag=1
+
+STATE_FOLLOW_LINE: Đọc pattern cảm biến -> tra bảng motor_table -> điều khiển hướng. Nếu gặp 0b111 hoặc 0b101 thì chuyển sang NAVIGATION. Nếu mất line (0b000), dùng last_valid_pat để duy trì hướng trong 0.2-0.5s
+
+STATE_STATION: Giảm tốc độ xuống 50%, kích hoạt đo siêu âm liên tục. Khi dist ≤ 2cm thì dừng xe
+
+STATE_STATION_STOP: Kích chân gắp bi, chờ 2s hoặc tín hiệu ball_ok
+
+STATE_STATION_BACK: Lùi xe 250mm đo bằng siêu âm (không dùng IR)
+
+STATE_NAVIGATION: Thực hiện quay tại chỗ (Pivot turn) theo route_table. Chỉ thoát khi cảm biến giữa (SM) thấy line và đã rẽ quá 200ms
+
+STATE_ERROR: Phân loại ERR_NOISE (chờ ổn định) hoặc ERR_LOSTLINE (lùi lại tìm line). Retry tối đa 3 lần
+
+STATE_END: Dừng motor, thả bi trong 2s, tắt LED1 và chờ reset
+
+4. File motor.c & motor.h (Điều khiển động cơ)
+Lookup Table (Bảng tra cứu): Khai báo mảng hằng số motor_table
+ trong bộ nhớ FLASH để ánh xạ 8 trạng thái cảm biến (000-111) ra tốc độ động cơ trái/phải tương ứng
+
+Hàm motor_set(L, R, DIR):
+Điều khiển chân AIN1 và BIN1 để xác định chiều tiến/lùi
+
+Ghi giá trị Duty Cycle vào các thanh ghi CCPR1L và CCPR2L
+
+Khởi tạo PWM: Thiết lập Timer2 với chu kỳ 20kHz (PR2=249) phù hợp cho driver TB6612
+
+5. File sensors.c & sensors.h (Xử lý cảm biến hồng ngoại)
+Hàm read_sensor_pattern(): Đọc 3 chân RA0-RA2. Do sensor là Active-LOW (vạch đen = 0), phải đảo bit logic để trả về pattern chuẩn (vạch đen = 1)
+
+Bộ lọc nhiễu Chatter Filter: Implement thuật toán yêu cầu N=3 mẫu liên tiếp giống nhau mới xác nhận thay đổi trạng thái pattern để loại bỏ các xung nhiễu (spikes)
+
+Tự động hiệu chỉnh (Calibration): (Nếu có) Logic tự động lấy mẫu nền trắng/đen trong 2 giây đầu khi khởi động mà không cần nút nhấn
+
+6. File ultrasonic.c & ultrasonic.h (Cảm biến siêu âm)
+Hàm hcsr04_read_cm():
+Xuất xung Trigger 10µs cao tại chân RB4
+
+Sử dụng phương pháp Polling hoặc Timer1 đo độ rộng xung Echo tại chân RB5
+
+Tính toán khoảng cách theo công thức: cm = pulse_us / 58 (hoặc ticks / 290 tùy cấu hình Timer)
+
+Trả về giá trị 255 nếu gặp timeout vật cản quá xa
+
+Lưu ý quan trọng: Toàn bộ các biến đếm thời gian (ms_tick, led_tick) và các cờ trạng thái (run_flag, station_flag) phải được khai báo với từ khóa volatile để tránh việc trình biên dịch tối ưu hóa sai khi dữ liệu thay đổi trong ngắt
+
+
+IV - EEPROM
+1. Thiết lập để lưu lại quãng đường sau khi đã chạy lần 1
+
