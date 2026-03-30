@@ -225,7 +225,3 @@ Educational/Academic Project - Free to use and modify
 - [ ] Multiple route support
 
 ---
-
-**Version**: 1.0
-**Date**: March 2026
-**Author**: Robot Line Follower Team

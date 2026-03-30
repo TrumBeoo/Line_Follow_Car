@@ -102,63 +102,66 @@ void state_follow_line_entry(void) {
 }
 
 void state_follow_line_update(void) {
-    int8 pattern = sensors_read_filtered();
+    int8 pattern;
+    int8 distance;
+    MotorCmd_t cmd;   // ? khai báo d?u block
+
+    pattern = sensors_read_filtered();
     
-    // Check for intersection (all sensors on line)
+    // Check for intersection
     if (sensors_is_intersection(pattern)) {
-        // Cross intersection by going straight for a short time
         motor_forward(BASE_PWM);
         delay_ms(CROSS_DELAY_MS);
         return;
     }
     
-    // Check ultrasonic for station/end detection
-    int8 distance = ultrasonic_read_cm();
+    // Read ultrasonic
+    distance = ultrasonic_read_cm();
     
-    // Check for T-junction AND close distance = Station
+    // T-junction x? lý
     if (sensors_is_tjunction(pattern)) {
-        if (distance != ULTRA_ERROR && distance <= STOP_CM_STATION + 3 && !ball_grabbed) {
-            // This is Station (T-junction + close + no ball yet)
+        if (distance != ULTRA_ERROR && distance <= (STOP_CM_STATION + 3) && !ball_grabbed) {
             station_detected = TRUE;
-            nav_direction = NAV_RIGHT;  // Will turn right after grabbing
+            nav_direction = NAV_RIGHT;
             fsm_transition(STATE_STATION);
             return;
         }
-        // If T-junction but not close or already have ball, just turn right
+
         nav_direction = NAV_RIGHT;
         fsm_transition(STATE_NAVIGATION);
         return;
     }
     
-    // Check for END point detection (close distance + already have ball)
+    // END detection
     if (distance != ULTRA_ERROR && distance <= STOP_CM_END && ball_grabbed) {
         end_detected = TRUE;
         fsm_transition(STATE_END);
         return;
     }
     
-    // Handle line loss
+    // Line lost
     if (sensors_is_lost(pattern)) {
+
         if (line_lost_time == 0) {
-            line_lost_time = ms_tick;  // Start timing
+            line_lost_time = ms_tick;
         }
-        
-        // If lost for too long, enter error state
+
         if ((ms_tick - line_lost_time) > LINE_LOST_MS) {
             fsm_handle_error(ERR_LOST_LINE);
             return;
         }
-        
-        // Maintain last direction
-        MotorCmd_t cmd = motor_get_command(sensors_get_last_valid());
+
+        // ? KHÔNG khai báo l?i bi?n
+        cmd = motor_get_command(sensors_get_last_valid());
         motor_set(cmd.left_pwm, cmd.right_pwm, cmd.direction);
         return;
-    } else {
-        line_lost_time = 0;  // Reset timer when line is found
-    }
+    } 
     
-    // Normal line following using lookup table
-    MotorCmd_t cmd = motor_get_command(pattern);
+    // Line found l?i
+    line_lost_time = 0;
+
+    // Normal follow
+    cmd = motor_get_command(pattern);
     motor_set(cmd.left_pwm, cmd.right_pwm, cmd.direction);
 }
 
@@ -175,15 +178,15 @@ void state_station_entry(void) {
 }
 
 void state_station_update(void) {
-    int8 distance = ultrasonic_read_cm();
+    int8 distance;
+
+    distance = ultrasonic_read_cm();
     
-    // Check if close enough to stop
     if (distance != ULTRA_ERROR && distance <= STOP_CM_STATION) {
         fsm_transition(STATE_STATION_STOP);
         return;
     }
     
-    // Continue approaching slowly
     motor_set(SLOW_PWM, SLOW_PWM, DIR_FORWARD);
 }
 
@@ -226,10 +229,10 @@ void state_station_back_entry(void) {
 }
 
 void state_station_back_update(void) {
-    // Measure distance using ultrasonic
-    int16 current_mm = ultrasonic_read_mm();
+    int16 current_mm;
+
+    current_mm = ultrasonic_read_mm();
     
-    // Simple distance tracking (accumulate change)
     if (last_mm == 0) {
         last_mm = current_mm;
     }
@@ -239,9 +242,8 @@ void state_station_back_update(void) {
         last_mm = current_mm;
     }
     
-    // Check if reversed enough
     if (reverse_distance_mm >= REVERSE_MM) {
-        last_mm = 0;  // Reset for next time
+        last_mm = 0;
         fsm_transition(STATE_NAVIGATION);
     }
 }
@@ -266,21 +268,23 @@ void state_navigation_entry(void) {
 }
 
 void state_navigation_update(void) {
-    int8 pattern = sensors_read_filtered();
-    int32 turn_duration = ms_tick - nav_start_time;
+    int8 pattern;
+    int32 turn_duration;
+
+    pattern = sensors_read_filtered();
+    turn_duration = ms_tick - nav_start_time;
     
-    // Wait minimum time before checking for line
     if (turn_duration < NAV_MIN_MS) {
         return;
     }
     
-    // Check if middle sensor detects line again
-    if ((pattern & 0b010) != 0) {  // Middle sensor on line
+    // ? 0b010 ? CCS không h? tr?
+    // ? dùng hex
+    if ((pattern & 0x02) != 0) {
         fsm_transition(STATE_FOLLOW_LINE);
     }
     
-    // Timeout protection (if turning for too long)
-    if (turn_duration > 2000) {  // 2 second timeout
+    if (turn_duration > 2000) {
         fsm_handle_error(ERR_LOST_LINE);
     }
 }
@@ -418,3 +422,5 @@ void fsm_save_checkpoint(Checkpoint_t cp) {
 void fsm_restore_checkpoint(void) {
     fsm_transition(STATE_CHECKPOINT);
 }
+
+//done

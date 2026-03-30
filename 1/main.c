@@ -7,6 +7,12 @@
 
 #include "main.h"
 
+// CCS C Compiler requires including .c files
+#include "sensors.c"
+#include "motor.c"
+#include "ultrasonic.c"
+#include "fsm.c"
+
 // ============================================================================
 // GLOBAL TIMING VARIABLES (volatile - modified in ISR)
 // ============================================================================
@@ -129,6 +135,9 @@ void pwm_init(void) {
 void interrupts_init(void) {
     // Enable Timer0 interrupt
     enable_interrupts(INT_TIMER0);
+    
+    // Enable Timer2 interrupt (software PWM for right motor)
+    enable_interrupts(INT_TIMER2);
     
     // Enable Port B change interrupt for button
     enable_interrupts(INT_RB);

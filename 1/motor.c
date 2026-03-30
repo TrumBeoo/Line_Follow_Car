@@ -1,16 +1,24 @@
 ////////////////////////////////////////////////////////////////////////////////
 // FILE: motor.c
 // DESC: Motor control implementation with PWM and lookup table
+// PWM: Hardware PWM (CCP1/RC2) for left motor
+//      Software PWM (Timer2 interrupt) for right motor
 ////////////////////////////////////////////////////////////////////////////////
 
 #include "main.h"
+
+// ============================================================================
+// SOFTWARE PWM VARIABLES (for right motor on RC3)
+// ============================================================================
+volatile int8 duty_R = 0;          // Right motor duty cycle (0-255)
+volatile int8 timer2_count = 0;    // Timer2 counter for PWM comparison
 
 // ============================================================================
 // LOOKUP TABLE (stored in ROM to save RAM)
 // Maps sensor patterns (0b000 to 0b111) to motor commands
 // Pattern format: [Left][Mid][Right] where 1=black line, 0=white surface
 // ============================================================================
-const ROM MotorCmd_t motor_table[8] = {
+const rom MotorCmd_t motor_table[8] = {
     // 0b000: All white (line lost) - maintain previous direction
     {BASE_PWM, BASE_PWM, DIR_FORWARD},
     
@@ -37,21 +45,36 @@ const ROM MotorCmd_t motor_table[8] = {
 };
 
 // ============================================================================
+// TIMER2 INTERRUPT - SOFTWARE PWM FOR RIGHT MOTOR
+// Triggers at 20kHz (every 50µs)
+// ============================================================================
+#INT_TIMER2
+void timer2_isr(void) {
+    // Compare duty_R with timer2_count for PWM output
+    if (timer2_count < duty_R) {
+        output_high(MOTOR_PWMB);  // RC3 HIGH during ON phase
+    } else {
+        output_low(MOTOR_PWMB);   // RC3 LOW during OFF phase
+    }
+    
+    // Increment counter and wrap at 256 (matches 8-bit duty cycle)
+    timer2_count++;
+}
+
+// ============================================================================
 // MOTOR INITIALIZATION
 // ============================================================================
 void motor_init(void) {
-    // Setup PWM on CCP1 (RC2) and CCP2 (RC3)
-    // Timer2 setup for 20kHz PWM frequency
+    // Setup Timer2 for 20kHz PWM frequency
     // Fosc = 20MHz, PWM freq = Fosc / (4 * (PR2+1) * TMR2 prescaler)
     // For 20kHz: PR2 = 249 with prescaler = 1
-    
     setup_timer_2(T2_DIV_BY_1, 249, 1);
     
-    // Setup CCP1 as PWM (MOTOR_PWMA - Left motor)
+    // Setup CCP1 as hardware PWM (MOTOR_PWMA - Left motor on RC2)
     setup_ccp1(CCP_PWM);
     
-    // Setup CCP2 as PWM (MOTOR_PWMB - Right motor)
-    setup_ccp2(CCP_PWM);
+    // RC3 (MOTOR_PWMB) configured as digital output for software PWM
+    // (CCP2 disabled to avoid conflict)
     
     // Initialize direction pins
     output_low(MOTOR_AIN1);
@@ -59,6 +82,9 @@ void motor_init(void) {
     
     // Enable motor driver (STBY pin high)
     output_high(MOTOR_STBY);
+    
+    // Enable Timer2 interrupt for software PWM
+    enable_interrupts(INT_TIMER2);
     
     // Start with motors stopped
     motor_stop();
@@ -77,12 +103,13 @@ void motor_set(int8 left_pwm, int8 right_pwm, int1 direction) {
         output_high(MOTOR_BIN1);  // BIN1=1, BIN2=0
     }
     
-    // Set PWM duty cycles
-    // CCS uses 10-bit resolution for PWM
-    // But we use 8-bit for simplicity (0-255)
-    // Scale to 10-bit: value * 4
+    // Set left motor PWM (hardware PWM on CCP1)
+    // CCS uses 10-bit resolution: scale 8-bit to 10-bit
     set_pwm1_duty((int16)left_pwm * 4);
-    set_pwm2_duty((int16)right_pwm * 4);
+    
+    // Set right motor PWM (software PWM via Timer2 interrupt)
+    // Update duty_R directly (0-255 range)
+    duty_R = right_pwm;
 }
 
 // ============================================================================
@@ -135,7 +162,7 @@ void motor_turn_left(int8 speed) {
 void motor_pivot_right(int8 speed) {
     // Left forward, right reverse
     set_pwm1_duty((int16)speed * 4);
-    set_pwm2_duty((int16)speed * 4);
+    duty_R = speed;
     output_low(MOTOR_AIN1);    // Left forward
     output_high(MOTOR_BIN1);   // Right reverse
 }
@@ -146,7 +173,7 @@ void motor_pivot_right(int8 speed) {
 void motor_pivot_left(int8 speed) {
     // Left reverse, right forward
     set_pwm1_duty((int16)speed * 4);
-    set_pwm2_duty((int16)speed * 4);
+    duty_R = speed;
     output_high(MOTOR_AIN1);   // Left reverse
     output_low(MOTOR_BIN1);    // Right forward
 }

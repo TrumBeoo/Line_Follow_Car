@@ -19,7 +19,7 @@ typedef struct {
 // LOOKUP TABLE FOR LINE FOLLOWING
 // Located in ROM to save RAM (8 patterns)
 // ============================================================================
-extern const ROM MotorCmd_t motor_table[8];
+extern const rom MotorCmd_t motor_table[8];
 
 // ============================================================================
 // FUNCTION PROTOTYPES
