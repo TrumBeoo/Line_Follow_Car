@@ -1,0 +1,55 @@
+
+ROM used:   536/98304 (1%)
+            536/98304 (1%) including unused fragments
+
+            0.6 Average locations per line
+            9.2 Average locations per statement
+
+RAM used:   27/3328 (1%) at main() level
+            28/3328 (1%) worst case
+
+Stack used: 2 worst case (1 in main + 1 for interrupts)
+Stack size: 31
+
+Lines Stmts  %   Files
+----- ----- ---  -----
+  112    58 100  test_motor.c
+  753     0   0  C:\Program Files (x86)\PICC\Devices\18F2685.h
+----- -----
+  865    58 Total
+
+Page ROM  %  RAM   Vol Diff  Functions:
+---- --- --- ---   --- ----  ----------
+0     38   4    1             @delay_ms1
+0     44   4    0   149  3.9  timer2_isr
+0     24   2    0   117  2.2  motor_init
+0     12   1    0    56  1.6  motor_stop
+0     32   3    1   143  1.8  motor_forward
+0     32   3    1   143  1.8  motor_backward
+0     32   3    1   143  1.8  motor_turn_left
+0     32   3    1   143  1.8  motor_turn_right
+0    136  13    1   310  1.9  MAIN
+ Inline         0             @cinit1
+
+Program metrics:
+    Functions               8
+    Statements              58
+    Comments                140
+    Volume (V)              1975
+    Difficulty (D)          16.6
+    Effort to implement (E) 32827
+    Time to implement (T)   30 minutes
+    Est Delivered Bugs (B)  0
+    Cyclomatic Complexity   1
+    Maintainability (MI)    120
+
+ Segment     Used  Free
+-----------  ----  ----
+00000-00002     4  0  
+00004-00006     0  4  
+00008-0009C   150  0  
+0009E-0FFFE   382  64996  
+10000-17FFE     0  32768  
+
+
+

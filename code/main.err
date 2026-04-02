@@ -1,0 +1,15 @@
+>>> Warning 216 "main.c" Line 471(1,2): Interrupts disabled during call to prevent re-entrancy:  (motor_stop)
+>>> Warning 216 "main.c" Line 471(1,2): Interrupts disabled during call to prevent re-entrancy:  (@delay_ms1)
+>>> Warning 216 "main.c" Line 471(1,2): Interrupts disabled during call to prevent re-entrancy:  (sensors_led_status)
+>>> Warning 216 "main.c" Line 471(1,2): Interrupts disabled during call to prevent re-entrancy:  (sensors_led_action)
+>>> Warning 216 "main.c" Line 471(1,2): Interrupts disabled during call to prevent re-entrancy:  (fsm_save_checkpoint)
+>>> Warning 216 "main.c" Line 471(1,2): Interrupts disabled during call to prevent re-entrancy:  (fsm_transition)
+>>> Warning 216 "main.c" Line 471(1,2): Interrupts disabled during call to prevent re-entrancy:  (motor_forward)
+>>> Warning 216 "main.c" Line 471(1,2): Interrupts disabled during call to prevent re-entrancy:  (motor_set)
+>>> Warning 216 "main.c" Line 471(1,2): Interrupts disabled during call to prevent re-entrancy:  (state_idle_entry)
+>>> Warning 202 "D:\intern\code\main.h" Line 29(22,38): Variable never used:   programming_mode
+>>> Warning 202 "D:\intern\code\main.h" Line 30(23,38): Variable never used:   led1_blink_tick
+>>> Warning 202 "main.c" Line 102(10,15): Variable never used:   portb
+      Memory usage:   ROM=6%      RAM=2% - 3%
+      0 Errors,  12 Warnings.
+Build Successful.

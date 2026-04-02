@@ -1,0 +1,21 @@
+[PROJECT]
+Target=test_motor.hex
+Processor_Text=PIC18F2685
+CCSVersion=5.015
+Compiler=PCH
+[Target Data]
+FileList=test_motor.c
+[Directories]
+Include=C:\Program Files (x86)\PICC\Devices\;C:\Program Files (x86)\PICC\Drivers\
+[test_motor.c]
+Type=4
+[mru-list]
+1=test_motor.c
+[Opened Files]
+1=test_motor.c
+2=
+3=test_sensor.c
+4=
+[Units]
+Count=1
+1=test_motor (main)

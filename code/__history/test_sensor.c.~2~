@@ -1,0 +1,80 @@
+#include <18F2685.h>
+#fuses HS, NOWDT, NOPROTECT, NOLVP
+#use delay(clock=20000000)
+
+#define SENSOR_LEFT PIN_A0
+#define SENSOR_MID PIN_A1
+#define SENSOR_RIGHT PIN_A2
+#define LED1 PIN_B2
+#define BUTTON_POWER PIN_B7
+
+int1 system_on = FALSE;
+int1 led_state = FALSE;
+int16 blink_counter = 0;
+int1 any_black = FALSE;
+
+#INT_TIMER0
+void timer0_isr(void) {
+    set_timer0(61536); // 1ms
+    
+    if (system_on) {
+        // Ð?c sensor (0=den, 1=tr?ng)
+        int1 left = input(SENSOR_LEFT);
+        int1 mid = input(SENSOR_MID);
+        int1 right = input(SENSOR_RIGHT);
+        
+        // Ki?m tra có sensor nào th?y den
+        any_black = (!left || !mid || !right);
+        
+        // Nháy LED n?u th?y den
+        if (any_black) {
+            blink_counter++;
+            if (blink_counter >= 250) { // 250ms
+                blink_counter = 0;
+                led_state = !led_state;
+                output_bit(LED1, led_state);
+            }
+        } else {
+            // T?t LED n?u th?y tr?ng
+            blink_counter = 0;
+            led_state = FALSE;
+            output_low(LED1);
+        }
+    }
+}
+
+#INT_RB
+void portb_isr(void) {
+    int8 portb = input_b();
+    delay_ms(50);
+    
+    if (!input(BUTTON_POWER)) {
+        system_on = !system_on;
+        if (!system_on) {
+            output_low(LED1);
+        }
+    }
+}
+
+void main(void) {
+    setup_adc(ADC_OFF);
+    setup_adc_ports(NO_ANALOGS);
+    
+    set_tris_a(0b00000111);
+    set_tris_b(0b10000011);
+    port_b_pullups(0b10000011);
+    
+    output_low(LED1);
+    
+    setup_timer_0(RTCC_INTERNAL | RTCC_DIV_8);
+    set_timer0(61536);
+    
+    enable_interrupts(INT_TIMER0);
+    enable_interrupts(INT_RB);
+    enable_interrupts(GLOBAL);
+    
+    while(TRUE) {
+        delay_ms(100);
+    }
+}
+

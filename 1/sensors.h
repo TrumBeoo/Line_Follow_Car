@@ -42,8 +42,10 @@ int1 sensors_is_lost(int8 pattern);
 
 // LED control functions (for status indication)
 void sensors_led_status(int1 state);
+void sensors_led_status_toggle(void);  // Toggle LED1 for blinking
 void sensors_led_action(int1 state);
-void sensors_led_blink_action(void);  // Non-blocking blink
+void sensors_led_action_toggle(void);  // Toggle LED2 for blinking
+void sensors_led_blink_action(void);  // Non-blocking blink - DEPRECATED
 
 // Calibration functions (if needed)
 void sensors_calibrate_start(void);

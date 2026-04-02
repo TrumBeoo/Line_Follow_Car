@@ -1,0 +1,7 @@
+ÀÄtest_sensor
+   ÃÄMAIN  0/114  Ram=0
+   ³  ÃÄ@cinit1  (Inline)  Ram=0
+   ³  ÃÄ@delay_ms1  0/38  Ram=1
+   ³  ÀÄ@delay_ms1  0/38  Ram=1
+   ÃÄtimer0_isr  0/122  Ram=0
+   ÀÄportb_isr  0/14  Ram=1

@@ -1,0 +1,90 @@
+////////////////////////////////////////////////////////////////////////////////
+// FILE: ultrasonic.c
+// DESC: Ultrasonic HC-SR04 with Timer1 HIGH priority interrupt
+////////////////////////////////////////////////////////////////////////////////
+
+#include "main.h"
+
+volatile int16 echo_start = 0;
+volatile int16 echo_width = 0;
+volatile int1 echo_ready = FALSE;
+
+// ============================================================================
+// TIMER1 ISR - HIGH PRIORITY for ultrasonic measurement
+// ============================================================================
+#INT_TIMER1 HIGH
+void timer1_isr(void) {
+    // Overflow protection (max ~13ms at 20MHz)
+    set_timer1(0);
+}
+
+// ============================================================================
+// ULTRASONIC INITIALIZATION
+// ============================================================================
+void ultrasonic_init(void) {
+    output_low(ULTRA_TRIG);
+    enable_interrupts(INT_TIMER1);
+}
+
+// ============================================================================
+// TRIGGER PULSE
+// ============================================================================
+void ultrasonic_trigger(void) {
+    output_low(ULTRA_TRIG);
+    delay_us(2);
+    output_high(ULTRA_TRIG);
+    delay_us(10);
+    output_low(ULTRA_TRIG);
+}
+
+// ============================================================================
+// MEASURE ECHO PULSE
+// ============================================================================
+int16 ultrasonic_measure_pulse(void) {
+    int32 timeout = 0;
+    
+    while (!input(ULTRA_ECHO)) {
+        delay_us(1);
+        if (++timeout > ULTRA_TIMEOUT) return 0;
+    }
+    
+    set_timer1(0);
+    
+    timeout = 0;
+    while (input(ULTRA_ECHO)) {
+        delay_us(1);
+        if (++timeout > ULTRA_TIMEOUT) return 0;
+    }
+    
+    return get_timer1() / 5;  // Convert to microseconds
+}
+
+// ============================================================================
+// READ DISTANCE
+// ============================================================================
+int8 ultrasonic_read_cm(void) {
+    ultrasonic_trigger();
+    delay_us(50);
+    
+    int16 pulse_us = ultrasonic_measure_pulse();
+    if (pulse_us == 0) return ULTRA_ERROR;
+    
+    int16 distance = pulse_us / 58;
+    return (distance > 254) ? 254 : (int8)distance;
+}
+
+int16 ultrasonic_read_mm(void) {
+    ultrasonic_trigger();
+    delay_us(50);
+    
+    int16 pulse_us = ultrasonic_measure_pulse();
+    if (pulse_us == 0) return 0xFFFF;
+    
+    return (int16)(((int32)pulse_us * 10) / 58);
+}
+
+int1 ultrasonic_check_close(int8 threshold_cm) {
+    int8 distance = ultrasonic_read_cm();
+    return (distance != ULTRA_ERROR && distance <= threshold_cm);
+}
+

@@ -1,0 +1,79 @@
+#include <18F2685.h>
+#fuses HS, NOWDT, NOPROTECT, NOLVP
+#use delay(clock=20000000)
+
+// Motor A
+#define MOTOR_AIN1 PIN_C0
+#define MOTOR_AIN2 PIN_C3
+
+// Motor B
+#define MOTOR_BIN1 PIN_C5
+#define MOTOR_BIN2 PIN_C6
+
+// Chung
+#define MOTOR_STBY PIN_C4
+
+void motor_init(void) {
+    output_low(MOTOR_STBY);
+    output_low(MOTOR_AIN1);
+    output_low(MOTOR_AIN2);
+    output_low(MOTOR_BIN1);
+    output_low(MOTOR_BIN2);
+}
+
+void motor_stop(void) {
+    output_low(MOTOR_STBY);
+}
+
+void motor_forward(void) {
+    output_high(MOTOR_STBY);
+    output_high(MOTOR_AIN1);
+    output_low(MOTOR_AIN2);
+    output_high(MOTOR_BIN1);
+    output_low(MOTOR_BIN2);
+}
+
+void motor_backward(void) {
+    output_high(MOTOR_STBY);
+    output_low(MOTOR_AIN1);
+    output_high(MOTOR_AIN2);
+    output_low(MOTOR_BIN1);
+    output_high(MOTOR_BIN2);
+}
+
+void motor_turn_left(void) {
+    output_high(MOTOR_STBY);
+    output_low(MOTOR_AIN1);
+    output_high(MOTOR_AIN2);
+    output_high(MOTOR_BIN1);
+    output_low(MOTOR_BIN2);
+}
+
+void motor_turn_right(void) {
+    output_high(MOTOR_STBY);
+    output_high(MOTOR_AIN1);
+    output_low(MOTOR_AIN2);
+    output_low(MOTOR_BIN1);
+    output_high(MOTOR_BIN2);
+}
+
+void main(void) {
+    motor_init();
+    
+    while(TRUE) {
+        motor_forward();
+        delay_ms(2000);
+        
+        motor_backward();
+        delay_ms(2000);
+        
+        motor_turn_left();
+        delay_ms(2000);
+        
+        motor_turn_right();
+        delay_ms(2000);
+        
+        motor_stop();
+        delay_ms(2000);
+    }
+}

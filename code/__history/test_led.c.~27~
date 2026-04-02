@@ -1,0 +1,17 @@
+#include <18F2685.h>
+#fuses HS, NOWDT, NOPROTECT, NOLVP
+#use delay(clock=20000000)
+
+#define LED1 PIN_B2
+#define LED2 PIN_B3
+
+void main(void) {
+    setup_adc(ADC_OFF);
+    
+    output_high(LED1);
+    output_highLED2);
+    
+    while(TRUE) {
+        delay_ms(100);
+    }
+}

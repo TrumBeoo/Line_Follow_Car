@@ -1,0 +1,112 @@
+////////////////////////////////////////////////////////////////////////////////
+// FILE: fsm.h
+// DESC: Finite State Machine header - state definitions and function declarations
+////////////////////////////////////////////////////////////////////////////////
+
+#ifndef FSM_H
+#define FSM_H
+
+// ============================================================================
+// STATE ENUMERATION (9 states)
+// ============================================================================
+typedef enum {
+    STATE_IDLE = 0,           // Waiting for RUN button
+    STATE_FOLLOW_LINE,        // Normal line following
+    STATE_STATION,            // Approaching ball pickup station
+    STATE_STATION_STOP,       // Stopped at station, grabbing ball
+    STATE_STATION_BACK,       // Reversing from station
+    STATE_NAVIGATION,         // Turning at junction (T or intersection)
+    STATE_END,                // Reached END point
+    STATE_ERROR,              // Error recovery state
+    STATE_CHECKPOINT          // Checkpoint management state
+} SystemState_t;
+
+// ============================================================================
+// ERROR TYPE ENUMERATION
+// ============================================================================
+typedef enum {
+    ERR_NONE = 0,
+    ERR_LOST_LINE,           // Lost line for too long
+    ERR_NOISE,               // Sensor noise detected
+    ERR_ULTRASONIC,          // Ultrasonic timeout
+    ERR_BALL_GRAB            // Ball grab failed
+} ErrorType_t;
+
+// ============================================================================
+// NAVIGATION DIRECTION
+// ============================================================================
+typedef enum {
+    NAV_STRAIGHT = 0,
+    NAV_RIGHT,
+    NAV_LEFT,
+    NAV_UTURN
+} NavDirection_t;
+
+// ============================================================================
+// CHECKPOINT ENUMERATION
+// ============================================================================
+typedef enum {
+    CP_START = 1,            // Starting position (checkpoint 1)
+    CP_AFTER_NAVIGATION,     // After navigation success (checkpoint 2)
+    CP_BEFORE_END            // Before END point (checkpoint 3)
+} Checkpoint_t;
+
+// ============================================================================
+// GLOBAL VARIABLES (declared as extern, defined in fsm.c)
+// ============================================================================
+extern volatile SystemState_t current_state;
+extern volatile SystemState_t previous_state;
+extern ErrorType_t current_error;
+extern NavDirection_t nav_direction;
+extern Checkpoint_t current_checkpoint;
+extern volatile int1 run_flag;
+extern volatile int1 ball_grabbed;
+extern int8 retry_count;
+
+// ============================================================================
+// FUNCTION PROTOTYPES
+// ============================================================================
+
+// Main state transition function
+void fsm_transition(SystemState_t next_state);
+
+// State entry functions (called once when entering state)
+void state_idle_entry(void);
+void state_follow_line_entry(void);
+void state_station_entry(void);
+void state_station_stop_entry(void);
+void state_station_back_entry(void);
+void state_navigation_entry(void);
+void state_end_entry(void);
+void state_error_entry(void);
+void state_checkpoint_entry(void);
+
+// State update functions (called repeatedly in main loop)
+void state_idle_update(void);
+void state_follow_line_update(void);
+void state_station_update(void);
+void state_station_stop_update(void);
+void state_station_back_update(void);
+void state_navigation_update(void);
+void state_end_update(void);
+void state_error_update(void);
+void state_checkpoint_update(void);
+
+// State exit functions (called once when leaving state)
+void state_idle_exit(void);
+void state_follow_line_exit(void);
+void state_station_exit(void);
+void state_station_stop_exit(void);
+void state_station_back_exit(void);
+void state_navigation_exit(void);
+void state_end_exit(void);
+void state_error_exit(void);
+void state_checkpoint_exit(void);
+
+// Utility functions
+void fsm_handle_error(ErrorType_t error);
+void fsm_save_checkpoint(Checkpoint_t cp);
+void fsm_restore_checkpoint(void);
+
+#endif // FSM_H
+

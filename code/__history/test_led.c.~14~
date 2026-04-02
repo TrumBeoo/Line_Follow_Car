@@ -1,0 +1,63 @@
+#include <18F2685.h>
+#fuses HS, NOWDT, NOPROTECT, NOLVP
+#use delay(clock=20000000)
+
+#define LED1 PIN_C3
+#define LED2 PIN_C4
+#define BUTTON_POWER PIN_B7
+#define BUTTON1 PIN_A6
+#define BUTTON2 PIN_A7
+
+int1 system_on = FALSE;
+int1 led1_on = FALSE;
+int1 led2_on = FALSE;
+
+#INT_RB
+void portb_isr(void) {
+    int8 portb = input_b();
+    delay_ms(50);
+    
+    // Button ngu?n B7
+    if (!input(BUTTON_POWER)) {
+        if (!system_on) {
+            system_on = TRUE;
+            led1_on = TRUE;
+            led2_on = TRUE;
+            output_high(LED1);
+            output_high(LED2);
+        }
+    }
+    
+    if (system_on) {
+        // Button 1 - t?t LED1
+        if (!input(BUTTON1) && led1_on) {
+            led1_on = FALSE;
+            output_low(LED1);
+        }
+        
+        // Button 2 - t?t LED2
+        if (!input(BUTTON2) && led2_on) {
+            led2_on = FALSE;
+            output_low(LED2);
+        }
+    }
+}
+
+void main(void) {
+    setup_adc(ADC_OFF);
+    setup_adc_ports(NO_ANALOGS);
+    
+    set_tris_b(0b10000011);
+    port_b_pullups(0b10000011);
+    
+    output_low(LED1);
+    output_low(LED2);
+    
+    enable_interrupts(INT_RB);
+    enable_interrupts(GLOBAL);
+    
+    while(TRUE) {
+        delay_ms(100);
+    }
+}
+

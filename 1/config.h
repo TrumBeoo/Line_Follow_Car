@@ -39,8 +39,8 @@
 // --- MOTOR DRIVER TB6612FNG ---
 #define MOTOR_PWMA       PIN_C2    // PWM for Motor A (Left)
 #define MOTOR_PWMB       PIN_C3    // PWM for Motor B (Right)
-#define MOTOR_AIN1       PIN_B0    // Direction control A
-#define MOTOR_BIN1       PIN_B2    // Direction control B
+#define MOTOR_AIN1       PIN_C6    // Direction control A (Left motor)
+#define MOTOR_BIN1       PIN_C7    // Direction control B (Right motor)
 #define MOTOR_STBY       PIN_B6    // Standby (must be HIGH to enable)
 
 // --- ULTRASONIC SENSOR HC-SR04 ---
@@ -48,12 +48,13 @@
 #define ULTRA_ECHO       PIN_B5    // Echo pin
 
 // --- PERIPHERALS ---
-#define LED_STATUS       PIN_C0    // Status LED (run indicator)
-#define LED_ACTION       PIN_C1    // Action LED (ball grab/release)
+#define LED_STATUS       PIN_B2    // LED1 - Status LED (run indicator)
+#define LED_ACTION       PIN_B3    // LED2 - Action LED (ball grab/release)
 #define SERVO_GRAB       PIN_C4    // Servo for ball grabber
 #define RELAY_RELEASE    PIN_C5    // Relay/Servo for ball release
-#define BUTTON_RUN       PIN_B7    // RUN button (with interrupt)
-#define BALL_SENSOR      PIN_B3    // Ball detection sensor
+#define BUTTON_SYSTEM    PIN_B7    // System ON/OFF button (simple toggle)
+#define BUTTON_STOP      PIN_B0    // STOP button (checkpoint logic)
+#define BUTTON_RUN       PIN_B1    // RUN button (start from checkpoint)
 
 // ============================================================================
 // SYSTEM CONSTANTS

@@ -18,6 +18,9 @@
 // ============================================================================
 volatile int32 ms_tick = 0;        // System millisecond counter
 volatile int16 led_tick = 0;       // LED blink counter
+volatile int1 led2_blink_enable = FALSE;  // Enable LED2 blinking
+volatile int8 led2_blink_count = 0;       // Count LED2 blinks
+volatile int1 led1_should_be_on = FALSE;  // LED1 state control
 
 // ============================================================================
 // TIMER0 INTERRUPT SERVICE ROUTINE
@@ -26,8 +29,6 @@ volatile int16 led_tick = 0;       // LED blink counter
 #INT_TIMER0
 void timer0_isr(void) {
     // Reload Timer0 for 2ms interval
-    // Timer0 in 16-bit mode at 20MHz with 1:4 prescaler
-    // Calculation: 65536 - (2ms * 20MHz / 4 / 4) = 65536 - 2500 = 63036
     set_timer0(63036);
     
     ms_tick += 2;  // Increment millisecond counter
@@ -36,32 +37,123 @@ void timer0_isr(void) {
     int8 raw_pattern = sensors_read_raw();
     sensors_chatter_filter(raw_pattern);
     
+    // Duy trì trạng thái LED1 - luôn sáng khi system enabled
+    if (led1_should_be_on && system_enabled) {
+        sensors_led_status(TRUE);
+    } else {
+        sensors_led_status(FALSE);
+    }
+    
+    // Handle LED2 control based on middle sensor - CHỈ KHI SYSTEM ENABLED VÀ KHÔNG BLINK
+    if (system_enabled && !led2_blink_enable) {
+        int8 current_pattern = sensors_read_filtered();
+        // LED2 tắt chỉ khi sensor giữa thấy line đen (bit 1 = 1)
+        if (current_pattern & 0b010) {
+            sensors_led_action(FALSE);  // LED2 OFF when middle sensor sees black line
+        } else {
+            sensors_led_action(TRUE);   // LED2 ON when middle sensor doesn't see black line
+        }
+    }
+    
     // Handle LED blinking for action LED
     led_tick++;
     if (led_tick >= 125) {  // 125 * 2ms = 250ms
         led_tick = 0;
+        
+        // Handle LED2 blinking when enabled - ƯU TIÊN BLINK HỠN SENSOR LOGIC
+        if (led2_blink_enable) {
+            sensors_led_action_toggle();  // Toggle LED2
+            led2_blink_count++;
+            
+            // Stop blinking after 6 toggles (3 complete blinks)
+            if (led2_blink_count >= 6) {
+                led2_blink_enable = FALSE;
+                led2_blink_count = 0;
+                // Sau khi blink xong, trở về logic sensor
+                if (system_enabled) {
+                    int8 current_pattern = sensors_read_filtered();
+                    if (current_pattern & 0b010) {
+                        sensors_led_action(FALSE);
+                    } else {
+                        sensors_led_action(TRUE);
+                    }
+                }
+            }
+        }
     }
 }
 
 // ============================================================================
+// GLOBAL VARIABLES FOR BUTTON HANDLING
+// ============================================================================
+volatile int1 system_enabled = FALSE;      // System ON/OFF state (RB7)
+volatile int1 stop_pressed = FALSE;        // Nút STOP - checkpoint logic (RB0)
+volatile int1 run_pressed = FALSE;         // Nút RUN - start from checkpoint (RB1)
+volatile int1 cp1_long_press = FALSE;      // Flag nhấn giữ STOP
+volatile int32 stop_press_time = 0;        // Thời gian bắt đầu nhấn STOP
+volatile int1 stop_is_pressed = FALSE;     // Trạng thái nhấn STOP
+
+// ============================================================================
 // PORT B CHANGE INTERRUPT
-// Handles RUN button press and ball sensor
+// Handles System ON/OFF (B7), STOP button (B0) and RUN button (B1)
 // ============================================================================
 #INT_RB
 void portb_change_isr(void) {
     int8 portb = input_b();  // Read to clear mismatch
     
-    // Check RUN button (RB7)
-    if (!input(BUTTON_RUN)) {  // Active low
+    // System ON/OFF button (B7) - simple toggle
+    if (!input(BUTTON_SYSTEM)) {  // Active low - đang nhấn
         delay_ms(50);  // Debounce
-        if (!input(BUTTON_RUN)) {
-            run_flag = TRUE;
+        if (!input(BUTTON_SYSTEM)) {
+            system_enabled = !system_enabled;  // Toggle system state
+            
+            if (!system_enabled) {
+                // System OFF - stop everything
+                led1_should_be_on = FALSE;
+                motor_stop();
+                sensors_led_status(FALSE);  // LED1 OFF
+                sensors_led_action(FALSE);  // LED2 OFF
+                fsm_transition(STATE_IDLE);
+            } else {
+                // System ON - cả 2 LED sáng khi bật nguồn
+                led1_should_be_on = TRUE;
+                sensors_led_status(TRUE);   // LED1 ON
+                sensors_led_action(TRUE);   // LED2 ON
+            }
         }
     }
     
-    // Check ball sensor (RB3) - optional
-    if (input(BALL_SENSOR)) {
-        ball_grabbed = TRUE;
+    // Only process other buttons if system is enabled
+    if (!system_enabled) {
+        return;
+    }
+    
+    // STOP button (B0) - xử lý nhấn giữ/thả cho checkpoint logic
+    if (!input(BUTTON_STOP)) {  // Active low - đang nhấn
+        if (!stop_is_pressed) {
+            stop_press_time = ms_tick;
+            stop_is_pressed = TRUE;
+        }
+    } else {  // Đã thả nút
+        if (stop_is_pressed) {
+            int32 press_duration = ms_tick - stop_press_time;
+            if (press_duration >= 1000) {  // Nhấn giữ >= 1s
+                stop_pressed = TRUE;
+                cp1_long_press = TRUE;
+            } else {  // Nhấn thả < 1s
+                stop_pressed = TRUE;
+                cp1_long_press = FALSE;
+            }
+            stop_is_pressed = FALSE;
+        }
+    }
+    
+    // RUN button (B1) - chỉ nhấn thả
+    if (!input(BUTTON_RUN)) {  // Active low
+        delay_ms(50);
+        if (!input(BUTTON_RUN)) {
+            run_pressed = TRUE;
+        }
     }
 }
 
@@ -79,11 +171,11 @@ void gpio_init(void) {
     ADCON1 = 0x0F;
     
     // Configure TRIS registers
-    // Inputs: RA0-RA2 (sensors), RB3 (ball sensor), RB5 (echo), RB7 (button)
+    // Inputs: RA0-RA2 (sensors), RB5 (echo), RB7 (button), RB0-RB1 (checkpoint buttons)
     // Outputs: All others
     
     set_tris_a(0b00000111);  // RA0-RA2 as inputs
-    set_tris_b(0b10101000);  // RB3, RB5, RB7 as inputs
+    set_tris_b(0b10100011);  // RB0, RB1, RB5, RB7 as inputs, RB2, RB3 as outputs for LEDs
     set_tris_c(0b00000000);  // All outputs
     
     // Initialize all outputs low
@@ -92,14 +184,14 @@ void gpio_init(void) {
     output_low(MOTOR_AIN1);
     output_low(MOTOR_BIN1);
     output_low(MOTOR_STBY);
-    output_low(LED_STATUS);
-    output_low(LED_ACTION);
+    output_low(LED_STATUS);    // LED1 OFF
+    output_low(LED_ACTION);    // LED2 OFF
     output_low(SERVO_GRAB);
     output_low(RELAY_RELEASE);
     output_low(ULTRA_TRIG);
     
     // Enable weak pull-ups on Port B for buttons
-    port_b_pullups(0b10000000);  // Pull-up on RB7 (RUN button)
+    port_b_pullups(0b10000011);  // Pull-up on RB0, RB1, RB7 (checkpoint and RUN buttons)
 }
 
 // ============================================================================
@@ -179,7 +271,7 @@ void system_init(void) {
 void peripherals_grab_ball(void) {
     // Activate servo/grabber mechanism
     output_high(SERVO_GRAB);
-    sensors_led_action(TRUE);
+    // LED2 will blink via ISR after GRAB_MS delay
 }
 
 // ============================================================================
@@ -191,8 +283,10 @@ void peripherals_release_ball(void) {
     delay_ms(RELEASE_MS);
     output_low(RELAY_RELEASE);
     output_low(SERVO_GRAB);
-    sensors_led_action(FALSE);
+    sensors_led_action(FALSE);  // LED2 OFF after release
 }
+
+
 
 // ============================================================================
 // UTILITY FUNCTIONS
@@ -206,18 +300,123 @@ int1 check_timeout(int32 start_time, int32 timeout_ms) {
 }
 
 // ============================================================================
+// CHECKPOINT BUTTON HANDLING
+// ============================================================================
+void handle_checkpoint_buttons(void) {
+    // Only process checkpoint buttons if system is enabled
+    if (!system_enabled) {
+        return;
+    }
+    
+    // Xử lý nút STOP (B0) - checkpoint logic
+    if (stop_pressed) {
+        stop_pressed = FALSE;
+        
+        if (cp1_long_press) {  // Nhấn giữ >= 1s = STOP function
+            // Mặc định về checkpoint 1, chưa có bi
+            current_checkpoint = CP_START;
+            ball_grabbed = FALSE;
+            sensors_led_action(FALSE);
+            motor_stop();
+            fsm_save_checkpoint(CP_START);
+            fsm_transition(STATE_IDLE);
+            
+        } else {  // Nhấn thả < 1s = Cycle through checkpoints
+            // Chuyển đổi giữa các checkpoint
+            switch (current_checkpoint) {
+                case CP_START:
+                    // Checkpoint 1 với bi đã lấy
+                    current_checkpoint = CP_START;
+                    ball_grabbed = TRUE;
+                    // LED2 OFF - chỉ nháy khi lấy bi thành công tại station
+                    sensors_led_action(FALSE);
+                    break;
+                    
+                case CP_AFTER_NAVIGATION:
+                    // Chuyển sang checkpoint 3
+                    current_checkpoint = CP_BEFORE_END;
+                    ball_grabbed = TRUE;
+                    sensors_led_action(FALSE);  // LED2 OFF
+                    break;
+                    
+                case CP_BEFORE_END:
+                    // Quay lại checkpoint 2
+                    current_checkpoint = CP_AFTER_NAVIGATION;
+                    ball_grabbed = TRUE;
+                    sensors_led_action(FALSE);  // LED2 OFF
+                    break;
+                    
+                default:
+                    // Mặc định về checkpoint 1
+                    current_checkpoint = CP_START;
+                    ball_grabbed = FALSE;
+                    sensors_led_action(FALSE);
+                    break;
+            }
+            
+            fsm_save_checkpoint(current_checkpoint);
+            // Không tự động chuyển state, chờ RUN button
+        }
+    }
+    
+    // Xử lý nút RUN (B1)
+    if (run_pressed) {
+        run_pressed = FALSE;
+        
+        // Thực hiện RUN từ checkpoint hiện tại
+        switch (current_checkpoint) {
+            case CP_START:
+                if (ball_grabbed) {
+                    // Đã có bi - bỏ qua station, thẳng navigation
+                    fsm_transition(STATE_FOLLOW_LINE);
+                } else {
+                    // Chưa có bi - bám line và vào station
+                    fsm_transition(STATE_FOLLOW_LINE);
+                }
+                break;
+                
+            case CP_AFTER_NAVIGATION:
+                // Checkpoint 2 - đã có bi, tiếp tục bám line
+                ball_grabbed = TRUE;
+                sensors_led_action(FALSE);  // LED2 OFF - chỉ nháy tại station
+                fsm_transition(STATE_FOLLOW_LINE);
+                break;
+                
+            case CP_BEFORE_END:
+                // Checkpoint 3 - gần END, đã có bi
+                ball_grabbed = TRUE;
+                sensors_led_action(FALSE);  // LED2 OFF - chỉ nháy tại station
+                fsm_transition(STATE_FOLLOW_LINE);
+                break;
+                
+            default:
+                // Mặc định chạy từ đầu
+                current_checkpoint = CP_START;
+                ball_grabbed = FALSE;
+                sensors_led_action(FALSE);
+                fsm_transition(STATE_FOLLOW_LINE);
+                break;
+        }
+    }
+}
+// ============================================================================
 // MAIN FUNCTION
 // ============================================================================
 void main(void) {
     // Initialize all systems
     system_init();
     
-    // Start in IDLE state
+    // Start with system disabled, in IDLE state
+    system_enabled = FALSE;
+    led1_should_be_on = FALSE;  // LED1 ban đầu tắt
     current_state = STATE_IDLE;
     state_idle_entry();
     
     // Main FSM dispatch loop
     while (TRUE) {
+        // Handle checkpoint buttons first
+        handle_checkpoint_buttons();
+        
         // Dispatch to current state's update function
         switch (current_state) {
             case STATE_IDLE:
@@ -246,6 +445,10 @@ void main(void) {
                 
             case STATE_END:
                 state_end_update();
+                break;
+                
+            case STATE_END_REVERSE:
+                state_end_reverse_update();
                 break;
                 
             case STATE_ERROR:

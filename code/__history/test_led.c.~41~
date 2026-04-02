@@ -1,0 +1,78 @@
+/*
+#include <18F2685.h>
+#fuses HS, NOWDT, NOPROTECT, NOLVP
+#use delay(clock=20000000)
+
+#define LED1 PIN_B2
+#define LED2 PIN_B3
+#define BUTTON1 PIN_A6
+#define BUTTON2 PIN_A7
+
+int1 led1_on = TRUE;
+int1 led2_on = TRUE;
+
+void main(void) {
+    setup_adc_ports(NO_ANALOGS);
+    setup_adc(ADC_OFF);
+    
+    set_tris_a(0b11000000);
+    set_tris_b(0b00000000);
+    
+    output_low(LED1);
+    output_low(LED2);
+    delay_ms(100);
+    
+    output_high(LED1);
+    output_high(LED2);
+    
+    while(TRUE) {
+        if (!input(BUTTON1)) {
+            delay_ms(50);
+            if (!input(BUTTON1)) {
+                led1_on = !led1_on;
+                output_bit(LED1, led1_on);
+                while(!input(BUTTON1));
+                delay_ms(50);
+            }
+        }
+        
+        if (!input(BUTTON2)) {
+            delay_ms(50);
+            if (!input(BUTTON2)) {
+                led2_on = !led2_on;
+                output_bit(LED2, led2_on);
+                while(!input(BUTTON2));
+                delay_ms(50);
+            }
+        }
+        
+        delay_ms(10);
+    }
+}
+*/
+
+#include <18F2685.h>
+#fuses HS, NOWDT, NOPROTECT, NOLVP
+#use delay(clock=20000000)
+
+#define LED1 PIN_B2
+#define LED2 PIN_B3
+
+
+
+void main(void) {
+    setup_adc(ADC_OFF);
+    
+    output_high(LED1);
+    delay_ms(500);
+    output_low(LED1);
+    output_high(LED2);
+    
+    while(TRUE) {
+        delay_ms(100);
+    }
+   
+ 
+}
+
+

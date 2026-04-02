@@ -1,0 +1,39 @@
+[PROJECT]
+Target=main.hex
+Processor_Text=PIC18F2685
+CCSVerions=5.015
+Compiler=PCH
+CCSVersion=5.015
+[Target Data]
+FileList=main.c
+[Directories]
+Include=C:\Program Files (x86)\PICC\Devices\;C:\Program Files (x86)\PICC\Drivers\
+[D:\intern\code\main]
+Type=4
+[mru-list]
+1=main.c
+[Opened Files]
+1=main.c
+2=main.h
+3=config.h
+4=test_led.c
+5=test_motor.c
+6=test_sensor.c
+7=test_ultrasonic.c
+8=fsm.c
+9=fsm.h
+10=motor.c
+11=motor.h
+12=ultrasonic.c
+13=ultrasonic.h
+14=C:\Program Files (x86)\PICC\Devices\18F2685.h
+15=sensors.c
+16=sensors.h
+17=
+18=test_ultrasonic.c
+19=
+[main.c]
+Type=4
+[Units]
+Count=1
+1=main (main)

@@ -131,30 +131,48 @@ int1 sensors_is_lost(int8 pattern) {
 }
 
 // ============================================================================
-// LED CONTROL - STATUS
+// LED CONTROL - STATUS (LED1)
 // ============================================================================
 void sensors_led_status(int1 state) {
     if (state) {
-        output_high(LED_STATUS);
+        output_high(LED_STATUS);  // LED1 ON
     } else {
-        output_low(LED_STATUS);
+        output_low(LED_STATUS);   // LED1 OFF
     }
 }
 
 // ============================================================================
-// LED CONTROL - ACTION
+// LED CONTROL - STATUS TOGGLE (for blinking LED1)
+// ============================================================================
+void sensors_led_status_toggle(void) {
+    static int1 led_state = FALSE;
+    led_state = !led_state;
+    sensors_led_status(led_state);  // Toggle LED1
+}
+
+// ============================================================================
+// LED CONTROL - ACTION (LED2)
 // ============================================================================
 void sensors_led_action(int1 state) {
     if (state) {
-        output_high(LED_ACTION);
+        output_high(LED_ACTION);  // LED2 ON
     } else {
-        output_low(LED_ACTION);
+        output_low(LED_ACTION);   // LED2 OFF
     }
+}
+
+// ============================================================================
+// LED CONTROL - ACTION TOGGLE (for blinking LED2)
+// ============================================================================
+void sensors_led_action_toggle(void) {
+    static int1 led_state = FALSE;
+    led_state = !led_state;
+    sensors_led_action(led_state);  // Toggle LED2
 }
 
 // ============================================================================
 // LED BLINK ACTION (non-blocking, called from ISR)
-// Toggles every 250ms
+// Toggles every 250ms - DEPRECATED
 // ============================================================================
 void sensors_led_blink_action(void) {
     if ((ms_tick - led_blink_start) >= 250) {

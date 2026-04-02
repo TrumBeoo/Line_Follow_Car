@@ -1,0 +1,15 @@
+ÀÄtest_motor
+   ÃÄMAIN  0/136  Ram=1
+   ³  ÃÄ@cinit1  (Inline)  Ram=0
+   ³  ÃÄmotor_init  0/24  Ram=0
+   ³  ÃÄmotor_forward  0/32  Ram=1
+   ³  ÃÄ@delay_ms1  0/38  Ram=1
+   ³  ÃÄmotor_backward  0/32  Ram=1
+   ³  ÃÄ@delay_ms1  0/38  Ram=1
+   ³  ÃÄmotor_turn_left  0/32  Ram=1
+   ³  ÃÄ@delay_ms1  0/38  Ram=1
+   ³  ÃÄmotor_turn_right  0/32  Ram=1
+   ³  ÃÄ@delay_ms1  0/38  Ram=1
+   ³  ÃÄmotor_stop  0/12  Ram=0
+   ³  ÀÄ@delay_ms1  0/38  Ram=1
+   ÀÄtimer2_isr  0/44  Ram=0

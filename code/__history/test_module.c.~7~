@@ -15,7 +15,7 @@
 // ============================================================================
 // SELECT TEST MODE (Comment/uncomment ONE at a time)
 // ============================================================================
-//#define TEST_SENSORS          // Test IR sensors and chatter filter
+#define TEST_SENSORS          // Test IR sensors and chatter filter
 //#define TEST_MOTOR            // Test all motor movements
 //#define TEST_ULTRASONIC       // Test distance measurement
 //#define TEST_FULL_INTEGRATION // Test all modules together
@@ -187,7 +187,7 @@ void test_integration(void) {
     
     // Test 5: Checkpoint save/restore
     printf("\n5. Testing checkpoint...\r\n");
-    fsm_save_checkpoint(CP_AFTER_STATION);
+    fsm_save_checkpoint(CP_AFTER_NAVIGATION);
     printf("  Saved checkpoint: %u\r\n", current_checkpoint);
     
     delay_ms(500);
@@ -365,3 +365,4 @@ void main(void) {
         delay_ms(100);
     }
 }
+

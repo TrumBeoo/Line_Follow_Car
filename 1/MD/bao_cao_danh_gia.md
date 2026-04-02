@@ -116,7 +116,7 @@ void motor_init(void) {
 
 ---
 
-### 🟡 VẤN ĐỀ 3: LOGIC XỬ LÝ MẤT LINE CHƯA TỐI ƯU
+### 🟡 VẤN ĐỀ 3: LOGIC XỬ LÝ MẤT LINE CHƯA TỐI ƯU - Đã sửa
 
 **File `fsm.c` - STATE_FOLLOW_LINE:**
 ```c
@@ -175,7 +175,7 @@ line_lost_counter = 0;  // Reset khi tìm lại line
 
 ---
 
-### 🟡 VẤN ĐỀ 4: CHATTER FILTER CHƯA ĐƯỢC GỌI ĐÚNG
+### 🟡 VẤN ĐỀ 4: CHATTER FILTER CHƯA ĐƯỢC GỌI ĐÚNG - Đúng không cần sửa
 
 **File `sensors.c`:**
 ```c
@@ -220,8 +220,8 @@ void timer0_isr(void) {
 **✅ PHẦN NÀY ĐÃ ĐÚNG** - Chatter filter được gọi trong ISR mỗi 2ms.
 
 ---
-
-### 🟡 VẤN ĐỀ 5: ULTRASONIC TIMEOUT CHƯA ĐƯỢC XỬ LÝ TỐT
+Nếu thay đổi không hoạt động đúng thì sửa lại thành sử dụng COUNTER
+### 🟡 VẤN ĐỀ 5: ULTRASONIC TIMEOUT CHƯA ĐƯỢC XỬ LÝ TỐT - Chưa sửa
 
 **File `ultrasonic.c`:**
 ```c
@@ -261,7 +261,7 @@ int16 ultrasonic_measure_pulse(void) {
 - `ULTRA_TIMEOUT = 30000` loops × 1µs = 30ms blocking time
 - Blocking quá lâu, ảnh hưởng đến bám line
 
-**💡 CẢI TIẾN: DÙNG TIMER1 OVERFLOW THAY VÌ COUNTER**
+**💡 CẢI TIẾN: DÙNG TIMER1 OVERFLOW THAY VÌ COUNTER** 
 
 ```c
 int16 ultrasonic_measure_pulse(void) {
@@ -308,7 +308,7 @@ int8 ultrasonic_read_cm(void) {
 
 ## PHẦN III: CÁC VẤN ĐỀ CẦN CẢI TIẾN (KHÔNG NGHIÊM TRỌNG)
 
-### 🟢 VẤN ĐỀ 6: THIẾU DEBOUNCE CHO NÚT NHẤN
+### 🟢 VẤN ĐỀ 6: THIẾU DEBOUNCE CHO NÚT NHẤN - Đã sửa
 
 **File `main.c` - Port B ISR:**
 ```c
@@ -355,7 +355,7 @@ void portb_change_isr(void) {
 
 ---
 
-### 🟢 VẤN ĐỀ 7: MOTOR PIVOT FUNCTIONS CHƯA CHUẨN
+### 🟢 VẤN ĐỀ 7: MOTOR PIVOT FUNCTIONS CHƯA CHUẨN - Không cần sửa
 
 **File `motor.c`:**
 ```c
@@ -399,7 +399,7 @@ Kiểm tra kỹ logic TB6612FNG:
 
 ---
 
-### 🟢 VẤN ĐỀ 8: STATE_NAVIGATION CHỜ LINE CHƯA TỐI ƯU
+### 🟢 VẤN ĐỀ 8: STATE_NAVIGATION CHỜ LINE CHƯA TỐI ƯU - Chưa sửa
 
 **File `fsm.c`:**
 ```c
@@ -450,7 +450,7 @@ void state_navigation_update(void) {
 
 ---
 
-### 🟢 VẤN ĐỀ 9: EEPROM CHECKPOINT CHƯA ĐƯỢC SỬ DỤNG ĐẦY ĐỦ
+### 🟢 VẤN ĐỀ 9: EEPROM CHECKPOINT CHƯA ĐƯỢC SỬ DỤNG ĐẦY ĐỦ - Đã sửa
 
 **File `fsm.c`:**
 ```c
@@ -507,6 +507,7 @@ void state_checkpoint_update(void) {
     }
 }
 ```
+vì sử dụng 2 nút nhấn, đối với nút 1 = STOP, khi nhấn giữ mặc định về check point = 1, ball_taken = 0 và thực hiện việc bám line và vào station lấy bi, nhấn thả check point = 1, ball_taken = 1 thực hiện không vào station mà xử lý NAVIGATION và tiếp tục bám line, nhấn thả check point = 2 và = 3 với điều kiện đã có, đối với nút 2 = RUN thực hiện nhấn thả khi đặt xe về check point được đếm trong hệ thống
 
 ---
 

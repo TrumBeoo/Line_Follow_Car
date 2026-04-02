@@ -1,0 +1,228 @@
+ÀÄmain
+   ÃÄMAIN  0/290  Ram=0
+   ³  ÃÄ@cinit1  (Inline)  Ram=0
+   ³  ÃÄsystem_init  0/128  Ram=1
+   ³  ³  ÃÄgpio_init  0/72  Ram=0
+   ³  ³  ÃÄsensors_init  0/44  Ram=2
+   ³  ³  ÃÄultrasonic_init  0/8  Ram=0
+   ³  ³  ÃÄtimers_init  0/20  Ram=0
+   ³  ³  ÃÄpwm_init  0/6  Ram=0
+   ³  ³  ³  ÀÄmotor_init  0/50  Ram=0
+   ³  ³  ³     ÀÄmotor_stop  0/12  Ram=0
+   ³  ³  ³        ÀÄmotor_set  0/76  Ram=5
+   ³  ³  ÃÄinterrupts_init  0/14  Ram=0
+   ³  ³  ÃÄ@delay_ms1  0/38  Ram=1
+   ³  ³  ÃÄsensors_led_status  0/16  Ram=1
+   ³  ³  ÃÄsensors_led_action  0/16  Ram=1
+   ³  ³  ÃÄ@delay_ms1  0/38  Ram=1
+   ³  ³  ÃÄsensors_led_status  0/16  Ram=1
+   ³  ³  ÀÄsensors_led_action  0/16  Ram=1
+   ³  ÃÄstate_idle_entry  0/6  Ram=0
+   ³  ³  ÀÄmotor_stop  0/12  Ram=0
+   ³  ³     ÀÄ*
+   ³  ÃÄhandle_checkpoint_buttons  0/408  Ram=0
+   ³  ³  ÃÄsensors_led_action  0/16  Ram=1
+   ³  ³  ÃÄmotor_stop  0/12  Ram=0
+   ³  ³  ³  ÀÄ*
+   ³  ³  ÃÄfsm_save_checkpoint  0/276  Ram=2
+   ³  ³  ÃÄfsm_transition  0/126  Ram=1
+   ³  ³  ³  ÃÄ@goto11058  0/70  Ram=0
+   ³  ³  ³  ÃÄstate_idle_exit  0/2  Ram=0
+   ³  ³  ³  ÃÄstate_follow_line_exit  0/2  Ram=0
+   ³  ³  ³  ÃÄstate_station_exit  0/4  Ram=0
+   ³  ³  ³  ³  ÀÄmotor_stop  0/12  Ram=0
+   ³  ³  ³  ³     ÀÄ*
+   ³  ³  ³  ÃÄstate_station_stop_exit  0/2  Ram=0
+   ³  ³  ³  ÃÄstate_station_back_exit  0/4  Ram=0
+   ³  ³  ³  ³  ÀÄmotor_stop  0/12  Ram=0
+   ³  ³  ³  ³     ÀÄ*
+   ³  ³  ³  ÃÄstate_navigation_exit  0/16  Ram=0
+   ³  ³  ³  ³  ÃÄmotor_stop  0/12  Ram=0
+   ³  ³  ³  ³  ³  ÀÄ*
+   ³  ³  ³  ³  ÃÄ@delay_ms1  0/38  Ram=1
+   ³  ³  ³  ³  ÀÄfsm_save_checkpoint  0/276  Ram=2
+   ³  ³  ³  ÃÄstate_end_exit  0/2  Ram=0
+   ³  ³  ³  ÃÄstate_end_reverse_exit  0/4  Ram=0
+   ³  ³  ³  ³  ÀÄmotor_stop  0/12  Ram=0
+   ³  ³  ³  ³     ÀÄ*
+   ³  ³  ³  ÃÄstate_error_exit  0/8  Ram=0
+   ³  ³  ³  ³  ÀÄsensors_led_status  0/16  Ram=1
+   ³  ³  ³  ÃÄstate_checkpoint_exit  0/2  Ram=0
+   ³  ³  ³  ÃÄ@goto11073  0/70  Ram=0
+   ³  ³  ³  ÃÄstate_idle_entry  0/6  Ram=0
+   ³  ³  ³  ³  ÀÄ*
+   ³  ³  ³  ÃÄstate_follow_line_entry  0/6  Ram=0
+   ³  ³  ³  ³  ÀÄmotor_enable  0/6  Ram=0
+   ³  ³  ³  ÃÄstate_station_entry  0/14  Ram=0
+   ³  ³  ³  ³  ÀÄmotor_set  0/76  Ram=5
+   ³  ³  ³  ÃÄstate_station_stop_entry  0/6  Ram=0
+   ³  ³  ³  ³  ÃÄmotor_stop  0/12  Ram=0
+   ³  ³  ³  ³  ³  ÀÄ*
+   ³  ³  ³  ³  ÀÄperipherals_grab_ball  0/6  Ram=0
+   ³  ³  ³  ÃÄstate_station_back_entry  0/16  Ram=0
+   ³  ³  ³  ³  ÀÄmotor_reverse  0/14  Ram=1
+   ³  ³  ³  ³     ÀÄmotor_set  0/76  Ram=5
+   ³  ³  ³  ÃÄstate_navigation_entry  0/42  Ram=0
+   ³  ³  ³  ³  ÃÄmotor_pivot_right  0/62  Ram=3
+   ³  ³  ³  ³  ÀÄmotor_pivot_left  0/62  Ram=3
+   ³  ³  ³  ÃÄstate_end_entry  0/26  Ram=1
+   ³  ³  ³  ³  ÃÄmotor_forward  0/16  Ram=1
+   ³  ³  ³  ³  ³  ÀÄmotor_set  0/76  Ram=5
+   ³  ³  ³  ³  ÃÄ@delay_ms1  0/38  Ram=1
+   ³  ³  ³  ³  ÃÄmotor_stop  0/12  Ram=0
+   ³  ³  ³  ³  ³  ÀÄ*
+   ³  ³  ³  ³  ÀÄperipherals_release_ball  0/32  Ram=1
+   ³  ³  ³  ³     ÃÄ@delay_ms1  0/38  Ram=1
+   ³  ³  ³  ³     ÀÄsensors_led_action  0/16  Ram=1
+   ³  ³  ³  ÃÄstate_end_reverse_entry  0/8  Ram=0
+   ³  ³  ³  ³  ÀÄmotor_reverse  0/14  Ram=1
+   ³  ³  ³  ³     ÀÄ*
+   ³  ³  ³  ÃÄstate_error_entry  0/4  Ram=0
+   ³  ³  ³  ³  ÀÄmotor_stop  0/12  Ram=0
+   ³  ³  ³  ³     ÀÄ*
+   ³  ³  ³  ÀÄstate_checkpoint_entry  0/4  Ram=0
+   ³  ³  ³     ÀÄmotor_stop  0/12  Ram=0
+   ³  ³  ³        ÀÄ*
+   ³  ³  ÃÄsensors_led_action  0/16  Ram=1
+   ³  ³  ÃÄsensors_led_action  0/16  Ram=1
+   ³  ³  ÃÄsensors_led_action  0/16  Ram=1
+   ³  ³  ÃÄsensors_led_action  0/16  Ram=1
+   ³  ³  ÃÄfsm_save_checkpoint  0/276  Ram=2
+   ³  ³  ÃÄfsm_transition  0/126  Ram=1
+   ³  ³  ³  ÀÄ*
+   ³  ³  ÃÄfsm_transition  0/126  Ram=1
+   ³  ³  ³  ÀÄ*
+   ³  ³  ÃÄsensors_led_action  0/16  Ram=1
+   ³  ³  ÃÄfsm_transition  0/126  Ram=1
+   ³  ³  ³  ÀÄ*
+   ³  ³  ÃÄsensors_led_action  0/16  Ram=1
+   ³  ³  ÃÄfsm_transition  0/126  Ram=1
+   ³  ³  ³  ÀÄ*
+   ³  ³  ÃÄsensors_led_action  0/16  Ram=1
+   ³  ³  ÀÄfsm_transition  0/126  Ram=1
+   ³  ³     ÀÄ*
+   ³  ÃÄstate_idle_update  0/32  Ram=0
+   ³  ³  ÀÄfsm_transition  0/126  Ram=1
+   ³  ³     ÀÄ*
+   ³  ÃÄstate_follow_line_update  0/488  Ram=8
+   ³  ³  ÃÄsensors_read_filtered  0/6  Ram=0
+   ³  ³  ÃÄfsm_save_checkpoint  0/276  Ram=2
+   ³  ³  ÃÄsensors_is_intersection  0/18  Ram=1
+   ³  ³  ÃÄmotor_forward  0/16  Ram=1
+   ³  ³  ³  ÀÄ*
+   ³  ³  ÃÄ@delay_ms1  0/38  Ram=1
+   ³  ³  ÃÄultrasonic_read_cm  0/84  Ram=0
+   ³  ³  ³  ÃÄultrasonic_trigger  0/36  Ram=0
+   ³  ³  ³  ÃÄultrasonic_measure_pulse  0/198  Ram=6
+   ³  ³  ³  ³  ÀÄ@DIV1616  0/66  Ram=5
+   ³  ³  ³  ÀÄ@DIV1616  0/66  Ram=5
+   ³  ³  ÃÄsensors_is_tjunction  0/18  Ram=1
+   ³  ³  ÃÄfsm_transition  0/126  Ram=1
+   ³  ³  ³  ÀÄ*
+   ³  ³  ÃÄfsm_transition  0/126  Ram=1
+   ³  ³  ³  ÀÄ*
+   ³  ³  ÃÄfsm_transition  0/126  Ram=1
+   ³  ³  ³  ÀÄ*
+   ³  ³  ÃÄsensors_is_lost  0/16  Ram=1
+   ³  ³  ÃÄsensors_get_last_valid  0/6  Ram=0
+   ³  ³  ÃÄmotor_get_command  0/44  Ram=2
+   ³  ³  ³  ÀÄ@const699  0/54  Ram=0
+   ³  ³  ÃÄmotor_set  0/76  Ram=5
+   ³  ³  ÃÄfsm_handle_error  0/24  Ram=1
+   ³  ³  ³  ÀÄfsm_transition  0/126  Ram=1
+   ³  ³  ³     ÀÄ*
+   ³  ³  ÃÄsensors_get_last_valid  0/6  Ram=0
+   ³  ³  ÃÄmotor_get_command  0/44  Ram=2
+   ³  ³  ³  ÀÄ*
+   ³  ³  ÃÄmotor_set  0/76  Ram=5
+   ³  ³  ÃÄmotor_get_command  0/44  Ram=2
+   ³  ³  ³  ÀÄ*
+   ³  ³  ÀÄmotor_set  0/76  Ram=5
+   ³  ÃÄstate_station_update  0/70  Ram=1
+   ³  ³  ÃÄultrasonic_read_cm  0/84  Ram=0
+   ³  ³  ³  ÀÄ*
+   ³  ³  ÃÄfsm_transition  0/126  Ram=1
+   ³  ³  ³  ÀÄ*
+   ³  ³  ÀÄmotor_set  0/76  Ram=5
+   ³  ÃÄstate_station_stop_update  0/82  Ram=4
+   ³  ³  ÀÄfsm_transition  0/126  Ram=1
+   ³  ³     ÀÄ*
+   ³  ÃÄstate_station_back_update  0/116  Ram=2
+   ³  ³  ÃÄultrasonic_read_mm  0/154  Ram=4
+   ³  ³  ³  ÃÄultrasonic_trigger  0/36  Ram=0
+   ³  ³  ³  ÃÄultrasonic_measure_pulse  0/198  Ram=6
+   ³  ³  ³  ³  ÀÄ*
+   ³  ³  ³  ÃÄ@MUL3232  0/86  Ram=14
+   ³  ³  ³  ÀÄ@DIV3232  0/142  Ram=13
+   ³  ³  ÀÄfsm_transition  0/126  Ram=1
+   ³  ³     ÀÄ*
+   ³  ÃÄstate_navigation_update  0/112  Ram=6
+   ³  ³  ÃÄsensors_read_filtered  0/6  Ram=0
+   ³  ³  ÃÄfsm_transition  0/126  Ram=1
+   ³  ³  ³  ÀÄ*
+   ³  ³  ÀÄfsm_handle_error  0/24  Ram=1
+   ³  ³     ÀÄ*
+   ³  ÃÄstate_end_update  0/110  Ram=4
+   ³  ³  ÃÄsensors_led_status  0/16  Ram=1
+   ³  ³  ÃÄsensors_led_action  0/16  Ram=1
+   ³  ³  ÀÄfsm_transition  0/126  Ram=1
+   ³  ³     ÀÄ*
+   ³  ÃÄstate_end_reverse_update  0/100  Ram=2
+   ³  ³  ÃÄsensors_read_filtered  0/6  Ram=0
+   ³  ³  ÃÄmotor_stop  0/12  Ram=0
+   ³  ³  ³  ÀÄ*
+   ³  ³  ÃÄmotor_disable  0/24  Ram=0
+   ³  ³  ³  ÀÄmotor_stop  0/12  Ram=0
+   ³  ³  ³     ÀÄ*
+   ³  ³  ÃÄsensors_led_status  0/16  Ram=1
+   ³  ³  ÃÄsensors_led_action  0/16  Ram=1
+   ³  ³  ÀÄ@delay_ms1  0/38  Ram=1
+   ³  ÃÄstate_error_update  0/156  Ram=8
+   ³  ³  ÃÄ@DIV3232  0/142  Ram=13
+   ³  ³  ÃÄsensors_led_status  0/16  Ram=1
+   ³  ³  ÃÄsensors_led_status  0/16  Ram=1
+   ³  ³  ÀÄfsm_transition  0/126  Ram=1
+   ³  ³     ÀÄ*
+   ³  ÃÄstate_checkpoint_update  0/330  Ram=1
+   ³  ³  ÃÄsensors_led_action  0/16  Ram=1
+   ³  ³  ÃÄfsm_transition  0/126  Ram=1
+   ³  ³  ³  ÀÄ*
+   ³  ³  ÃÄsensors_led_action  0/16  Ram=1
+   ³  ³  ÃÄfsm_transition  0/126  Ram=1
+   ³  ³  ³  ÀÄ*
+   ³  ³  ÃÄsensors_led_action  0/16  Ram=1
+   ³  ³  ÃÄfsm_transition  0/126  Ram=1
+   ³  ³  ³  ÀÄ*
+   ³  ³  ÃÄsensors_led_action  0/16  Ram=1
+   ³  ³  ÀÄfsm_transition  0/126  Ram=1
+   ³  ³     ÀÄ*
+   ³  ÃÄfsm_transition  0/126  Ram=1
+   ³  ³  ÀÄ*
+   ³  ÀÄ@delay_ms1  0/38  Ram=1
+   ÃÄtimer2_isr  0/24  Ram=0
+   ÃÄtimer0_isr  0/152  Ram=0
+   ³  ÃÄsensors_read_raw  0/34  Ram=1
+   ³  ÃÄsensors_chatter_filter  0/102  Ram=3
+   ³  ³  ÃÄ@DIV88  0/42  Ram=3
+   ³  ³  ÀÄsensors_is_valid_line  0/28  Ram=1
+   ³  ÃÄsensors_led_status  0/16  Ram=1
+   ³  ÃÄsensors_led_status  0/16  Ram=1
+   ³  ÃÄsensors_read_filtered  0/6  Ram=0
+   ³  ÃÄsensors_led_action  0/16  Ram=1
+   ³  ÃÄsensors_led_action  0/16  Ram=1
+   ³  ÃÄsensors_led_action_toggle  0/18  Ram=1
+   ³  ³  ÀÄsensors_led_action  0/16  Ram=1
+   ³  ÃÄsensors_read_filtered  0/6  Ram=0
+   ³  ÃÄsensors_led_action  0/16  Ram=1
+   ³  ÀÄsensors_led_action  0/16  Ram=1
+   ÀÄportb_change_isr  0/188  Ram=1
+      ÃÄ@delay_ms1  0/38  Ram=1
+      ÃÄmotor_stop  0/12  Ram=0
+      ³  ÀÄ*
+      ÃÄsensors_led_status  0/16  Ram=1
+      ÃÄsensors_led_action  0/16  Ram=1
+      ÃÄfsm_transition  0/126  Ram=1
+      ³  ÀÄ*
+      ÃÄsensors_led_status  0/16  Ram=1
+      ÃÄsensors_led_action  0/16  Ram=1
+      ÀÄ@delay_ms1  0/38  Ram=1

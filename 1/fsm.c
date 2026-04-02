@@ -5,6 +5,10 @@
 
 #include "main.h"
 
+// Tham chiếu đến biến LED2 blink (khai báo trong main.c)
+extern volatile int1 led2_blink_enable;
+extern volatile int8 led2_blink_count;
+
 // ============================================================================
 // GLOBAL FSM VARIABLES
 // ============================================================================
@@ -12,27 +16,42 @@ volatile SystemState_t current_state = STATE_IDLE;
 volatile SystemState_t previous_state = STATE_IDLE;
 ErrorType_t current_error = ERR_NONE;
 NavDirection_t nav_direction = NAV_STRAIGHT;
-Checkpoint_t current_checkpoint = CP_START;
+Checkpoint_t current_checkpoint = CP_START;  // Bắt đầu từ checkpoint 1
 volatile int1 run_flag = FALSE;
 volatile int1 ball_grabbed = FALSE;
 int8 retry_count = 0;
+
+// Biến đếm cho checkpoint logic
+static int8 intersection_count = 0;      // Đếm số lần gặp pattern 111
+static int8 right_turn_count = 0;        // Đếm số lần lệch phải
 
 // ============================================================================
 // PRIVATE FSM VARIABLES
 // ============================================================================
 static int32 state_entry_time = 0;      // Time when state was entered
-static int32 line_lost_time = 0;        // Time when line was lost
+static int8 line_lost_counter = 0;      // Counter for consecutive line lost readings
 static int32 nav_start_time = 0;        // Navigation start time
 static int16 reverse_distance_mm = 0;   // Distance traveled in reverse
 static int16 last_mm = 0;               // Last ultrasonic reading for reverse tracking
 static int1 station_detected = FALSE;   // Station proximity flag
 static int1 end_detected = FALSE;       // End point proximity flag
 
+#define LINE_LOST_COUNT_MAX 5  // 5 lần liên tiếp @ 10ms/loop = 50ms
+
+// Pattern definitions for checkpoint logic
+#define PATTERN_INTERSECTION 0x07  // 111 - intersection
+#define PATTERN_RIGHT_LIGHT  0x01  // 001 - lệch phải nhẹ
+#define PATTERN_RIGHT_HEAVY  0x03  // 011 - lệch phải mạnh
+
 // ============================================================================
 // EEPROM ADDRESSES FOR CHECKPOINT DATA
 // ============================================================================
 #define EEPROM_CHECKPOINT    0x00  // Current checkpoint
 #define EEPROM_STATE         0x01  // State to resume from
+#define EEPROM_NAV_DIR       0x02  // Navigation direction
+#define EEPROM_BALL_STATUS   0x03  // Ball grabbed status (0/1)
+#define EEPROM_INTERSECT_CNT 0x04  // Intersection counter
+#define EEPROM_RIGHT_CNT     0x05  // Right turn counter
 
 // ============================================================================
 // STATE TRANSITION FUNCTION
@@ -48,6 +67,7 @@ void fsm_transition(SystemState_t next_state) {
         case STATE_STATION_BACK:   state_station_back_exit(); break;
         case STATE_NAVIGATION:     state_navigation_exit(); break;
         case STATE_END:            state_end_exit(); break;
+        case STATE_END_REVERSE:    state_end_reverse_exit(); break;
         case STATE_ERROR:          state_error_exit(); break;
         case STATE_CHECKPOINT:     state_checkpoint_exit(); break;
     }
@@ -66,6 +86,7 @@ void fsm_transition(SystemState_t next_state) {
         case STATE_STATION_BACK:   state_station_back_entry(); break;
         case STATE_NAVIGATION:     state_navigation_entry(); break;
         case STATE_END:            state_end_entry(); break;
+        case STATE_END_REVERSE:    state_end_reverse_entry(); break;
         case STATE_ERROR:          state_error_entry(); break;
         case STATE_CHECKPOINT:     state_checkpoint_entry(); break;
     }
@@ -77,19 +98,20 @@ void fsm_transition(SystemState_t next_state) {
 // ============================================================================
 void state_idle_entry(void) {
     motor_stop();
-    sensors_led_status(FALSE);
+    // LED1 không được tắt ở IDLE - chỉ tắt khi system OFF hoặc END hoàn thành
     run_flag = FALSE;
 }
 
 void state_idle_update(void) {
-    // Wait for RUN button press (set by interrupt)
-    if (run_flag) {
+    // Only respond to RUN button if system is enabled
+    if (system_enabled && run_pressed) {
+        run_pressed = FALSE;
         fsm_transition(STATE_FOLLOW_LINE);
     }
 }
 
 void state_idle_exit(void) {
-    sensors_led_status(TRUE);
+    // LED1 đã sáng từ khi bật nguồn - không cần bật lại
 }
 
 // ============================================================================
@@ -98,15 +120,32 @@ void state_idle_exit(void) {
 // ============================================================================
 void state_follow_line_entry(void) {
     motor_enable();
-    line_lost_time = 0;
+    line_lost_counter = 0;
 }
 
 void state_follow_line_update(void) {
     int8 pattern;
     int8 distance;
-    MotorCmd_t cmd;   // ? khai báo d?u block
+    MotorCmd_t cmd;
 
     pattern = sensors_read_filtered();
+    
+    // Checkpoint logic - đếm pattern 111 và lệch phải
+    if (current_checkpoint >= CP_AFTER_NAVIGATION) {
+        if (pattern == PATTERN_INTERSECTION) {
+            intersection_count++;
+        }
+        if (pattern == PATTERN_RIGHT_LIGHT || pattern == PATTERN_RIGHT_HEAVY) {
+            right_turn_count++;
+        }
+        
+        // Sau khi xử lý đủ pattern → checkpoint gần END
+        if (intersection_count >= 1 && right_turn_count >= 2) {
+            fsm_save_checkpoint(CP_BEFORE_END);
+            intersection_count = 0;  // Reset counters
+            right_turn_count = 0;
+        }
+    }
     
     // Check for intersection
     if (sensors_is_intersection(pattern)) {
@@ -118,7 +157,7 @@ void state_follow_line_update(void) {
     // Read ultrasonic
     distance = ultrasonic_read_cm();
     
-    // T-junction x? lý
+    // T-junction xử lý
     if (sensors_is_tjunction(pattern)) {
         if (distance != ULTRA_ERROR && distance <= (STOP_CM_STATION + 3) && !ball_grabbed) {
             station_detected = TRUE;
@@ -141,24 +180,29 @@ void state_follow_line_update(void) {
     
     // Line lost
     if (sensors_is_lost(pattern)) {
-
-        if (line_lost_time == 0) {
-            line_lost_time = ms_tick;
-        }
-
-        if ((ms_tick - line_lost_time) > LINE_LOST_MS) {
-            fsm_handle_error(ERR_LOST_LINE);
+        line_lost_counter++;
+        
+        if (line_lost_counter >= LINE_LOST_COUNT_MAX) {
+            // Thử giảm tốc trước khi báo lỗi
+            if (line_lost_counter < LINE_LOST_COUNT_MAX + 10) {
+                cmd = motor_get_command(sensors_get_last_valid());
+                motor_set(cmd.left_pwm / 2, cmd.right_pwm / 2, cmd.direction);
+            } else {
+                fsm_handle_error(ERR_LOST_LINE);
+            }
             return;
         }
-
-        // ? KHÔNG khai báo l?i bi?n
+        
+        // Duy trì hướng cũ với tốc độ giảm dần
         cmd = motor_get_command(sensors_get_last_valid());
-        motor_set(cmd.left_pwm, cmd.right_pwm, cmd.direction);
+        int8 speed_factor = (LINE_LOST_COUNT_MAX - line_lost_counter) * 20;
+        motor_set(cmd.left_pwm - speed_factor, 
+                  cmd.right_pwm - speed_factor, 
+                  cmd.direction);
         return;
-    } 
+    }
     
-    // Line found l?i
-    line_lost_time = 0;
+    line_lost_counter = 0;  // Reset khi tìm lại line
 
     // Normal follow
     cmd = motor_get_command(pattern);
@@ -204,18 +248,21 @@ void state_station_stop_entry(void) {
 }
 
 void state_station_stop_update(void) {
-    // Wait for grab duration OR ball sensor detects ball
-    if ((ms_tick - state_entry_time) >= GRAB_MS || ball_grabbed) {
-        ball_grabbed = TRUE;  // Ensure flag is set
-        sensors_led_action(TRUE);
-        fsm_save_checkpoint(CP_AFTER_STATION);
-        nav_direction = NAV_RIGHT;  // Set direction before transition
+    // Chờ thời gian cơ cấu lấy bi hoạt động (2 giây)
+    if ((ms_tick - state_entry_time) >= GRAB_MS) {
+        ball_grabbed = TRUE;  // Set flag sau khi cơ cấu hoạt động xong
+        
+        // Bắt đầu nháy LED2 để báo hiệu lấy bi thành công
+        led2_blink_enable = TRUE;
+        led2_blink_count = 0;
+        
+        nav_direction = NAV_RIGHT;  // Set hướng trước khi chuyển state
         fsm_transition(STATE_STATION_BACK);
     }
 }
 
 void state_station_stop_exit(void) {
-    // Ball is grabbed, LED stays on
+    // Ball is grabbed, LED2 will blink via ISR
 }
 
 // ============================================================================
@@ -292,6 +339,9 @@ void state_navigation_update(void) {
 void state_navigation_exit(void) {
     motor_stop();
     delay_ms(100);  // Brief pause to stabilize
+    
+    // Lưu checkpoint sau khi navigation thành công
+    fsm_save_checkpoint(CP_AFTER_NAVIGATION);
 }
 
 // ============================================================================
@@ -306,24 +356,65 @@ void state_end_entry(void) {
     
     // Release ball
     peripherals_release_ball();
+    
+    // LED1 vẫn sáng - chỉ tắt sau 2s trong state_end_update
 }
 
 void state_end_update(void) {
-    // Wait for release duration
+    // Wait for release duration (2s)
     if ((ms_tick - state_entry_time) >= RELEASE_MS) {
-        sensors_led_action(FALSE);
-        sensors_led_status(FALSE);
+        // Tắt LED1 sau khi hoàn thành nhiệm vụ (2s)
+        sensors_led_status(FALSE);  // LED1 OFF
+        sensors_led_action(FALSE);  // LED2 OFF
         ball_grabbed = FALSE;
         
-        // Stop and wait for manual reset
-        motor_disable();
-        delay_ms(1000);
-        reset_cpu();  // Reset to start new cycle
+        // Chuyển sang state lùi thay vì reset ngay
+        fsm_transition(STATE_END_REVERSE);
     }
 }
 
 void state_end_exit(void) {
-    // System will reset
+    // Chuẩn bị chuyển sang state lùi
+}
+
+// ============================================================================
+// STATE: END_REVERSE
+// Reversing after ball release until all sensors see white (000)
+// ============================================================================
+void state_end_reverse_entry(void) {
+    // Bắt đầu lùi với tốc độ chậm
+    motor_reverse(SLOW_PWM);
+}
+
+void state_end_reverse_update(void) {
+    int8 pattern;
+    
+    // Đọc cảm biến
+    pattern = sensors_read_filtered();
+    
+    // Kiểm tra nếu cả 3 cảm biến thấy nền trắng (000)
+    if (pattern == 0b000) {
+        // Dừng motor
+        motor_stop();
+        motor_disable();
+        
+        // Tắt tất cả LED
+        sensors_led_status(FALSE);  // LED1 OFF
+        sensors_led_action(FALSE);  // LED2 OFF
+        
+        // Chờ một chút trước khi reset
+        delay_ms(1000);
+        
+        // Reset hệ thống để bắt đầu chu kỳ mới
+        reset_cpu();
+    }
+    
+    // Tiếp tục lùi nếu chưa thấy nền trắng
+    // (motor đã được bật trong entry)
+}
+
+void state_end_reverse_exit(void) {
+    motor_stop();
 }
 
 // ============================================================================
@@ -332,7 +423,7 @@ void state_end_exit(void) {
 // ============================================================================
 void state_error_entry(void) {
     motor_stop();
-    sensors_led_status(FALSE);  // Blink LED to indicate error
+    // LED1 không tắt - chỉ nháy để báo lỗi
 }
 
 void state_error_update(void) {
@@ -343,9 +434,9 @@ void state_error_update(void) {
         sensors_led_status(FALSE);
     }
     
-    // Wait for button press to resume from checkpoint
-    if (run_flag) {
-        run_flag = FALSE;
+    // Wait for RUN button press to resume from checkpoint (only if system enabled)
+    if (system_enabled && run_pressed) {
+        run_pressed = FALSE;
         retry_count++;
         
         if (retry_count > MAX_RETRIES) {
@@ -358,6 +449,7 @@ void state_error_update(void) {
 }
 
 void state_error_exit(void) {
+    // Đảm bảo LED1 sáng khi thoát khỏi error state
     sensors_led_status(TRUE);
 }
 
@@ -366,30 +458,54 @@ void state_error_exit(void) {
 // Resume from saved checkpoint
 // ============================================================================
 void state_checkpoint_entry(void) {
-    // Read checkpoint from EEPROM
-    current_checkpoint = read_eeprom(EEPROM_CHECKPOINT);
+    // Đọc checkpoint từ EEPROM sẽ được thực hiện trong update
+    motor_stop();
 }
 
 void state_checkpoint_update(void) {
-    // Resume appropriate state based on checkpoint
+    // Khôi phục trạng thái từ EEPROM
+    current_checkpoint = read_eeprom(EEPROM_CHECKPOINT);
+    nav_direction = read_eeprom(EEPROM_NAV_DIR);
+    int8 saved_ball = read_eeprom(EEPROM_BALL_STATUS);
+    intersection_count = read_eeprom(EEPROM_INTERSECT_CNT);
+    right_turn_count = read_eeprom(EEPROM_RIGHT_CNT);
+    
+    // Khôi phục ball status (cơ cấu thuần cơ khí)
+    ball_grabbed = (saved_ball == 1);
+    // LED2 luôn OFF khi restore - chỉ nháy tại station
+    
+    // Resume state dựa trên checkpoint
     switch (current_checkpoint) {
-        case CP_START:
+        case CP_START:  // Checkpoint 1
+            // Bắt đầu từ đầu - chưa có bi
+            ball_grabbed = FALSE;
+            sensors_led_action(FALSE);
+            intersection_count = 0;
+            right_turn_count = 0;
             fsm_transition(STATE_FOLLOW_LINE);
             break;
             
-        case CP_AFTER_STATION:
+        case CP_AFTER_NAVIGATION:  // Checkpoint 2
+            // Sau navigation thành công, bắt đầu đếm pattern
             ball_grabbed = TRUE;
-            sensors_led_action(TRUE);
-            fsm_transition(STATE_NAVIGATION);
+            sensors_led_action(FALSE);  // LED2 OFF - chỉ nháy tại station
+            // Counters đã được khôi phục từ EEPROM
+            fsm_transition(STATE_FOLLOW_LINE);
             break;
             
-        case CP_BEFORE_END:
+        case CP_BEFORE_END:  // Checkpoint 3
+            // Có bi, đang trên đường đến END
             ball_grabbed = TRUE;
-            sensors_led_action(TRUE);
+            sensors_led_action(FALSE);  // LED2 OFF - chỉ nháy tại station
             fsm_transition(STATE_FOLLOW_LINE);
             break;
             
         default:
+            // Checkpoint không hợp lệ - reset về đầu
+            ball_grabbed = FALSE;
+            sensors_led_action(FALSE);
+            intersection_count = 0;
+            right_turn_count = 0;
             fsm_transition(STATE_FOLLOW_LINE);
             break;
     }
@@ -414,6 +530,10 @@ void fsm_save_checkpoint(Checkpoint_t cp) {
     current_checkpoint = cp;
     write_eeprom(EEPROM_CHECKPOINT, cp);
     write_eeprom(EEPROM_STATE, current_state);
+    write_eeprom(EEPROM_NAV_DIR, nav_direction);
+    write_eeprom(EEPROM_BALL_STATUS, ball_grabbed ? 1 : 0);
+    write_eeprom(EEPROM_INTERSECT_CNT, intersection_count);
+    write_eeprom(EEPROM_RIGHT_CNT, right_turn_count);
 }
 
 // ============================================================================

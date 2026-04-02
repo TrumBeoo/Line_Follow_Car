@@ -1,0 +1,313 @@
+000     @SCRATCH
+001     @SCRATCH
+001     _RETURN_
+002     @SCRATCH
+003     @SCRATCH
+004     @INTERRUPT_AREA
+005     @INTERRUPT_AREA
+006     @INTERRUPT_AREA
+007     @INTERRUPT_AREA
+008     @INTERRUPT_AREA
+009     @INTERRUPT_AREA
+00A     @INTERRUPT_AREA
+00B     @INTERRUPT_AREA
+00C     @INTERRUPT_AREA
+00D     @INTERRUPT_AREA
+00E     @INTERRUPT_AREA
+00F     @INTERRUPT_AREA
+010     @INTERRUPT_AREA
+011     @INTERRUPT_AREA
+012     @INTERRUPT_AREA
+013     @INTERRUPT_AREA
+014     @INTERRUPT_AREA
+015     @INTERRUPT_AREA
+016     @INTERRUPT_AREA
+017     @INTERRUPT_AREA
+018     current_state
+019     previous_state
+01A     current_error
+01B     nav_direction
+01C     current_checkpoint
+01D.0   run_flag
+01D.1   ball_grabbed
+01D.2   led2_blink_enable
+01D.3   system_enabled
+01D.4   stop_pressed
+01D.5   run_pressed
+01D.6   cp1_long_press
+01D.7   calibrated
+01E     retry_count
+01F-022 ms_tick
+023-024 led_tick
+025     led2_blink_count
+026-028 chatter_buffer
+029     chatter_index
+02A     filtered_pattern
+02B     last_valid_pattern
+02C-02D led_blink_start
+02E.0   led_blink_state
+02E.1   sensors_led_status_toggle.led_state
+02E.2   sensors_led_action_toggle.led_state
+02E.3   station_detected
+02E.4   end_detected
+02E.5   led1_should_be_on
+02E.6   stop_is_pressed
+02F     duty_R
+030     timer2_count
+031     intersection_count
+032     right_turn_count
+033-036 state_entry_time
+037     line_lost_counter
+038-03B nav_start_time
+03C-03D reverse_distance_mm
+03E-03F last_mm
+040-043 stop_press_time
+044     sensors_init.i
+044     state_end_reverse_update.pattern
+044     state_station_update.distance
+044     state_follow_line_update.pattern
+044     state_navigation_update.pattern
+044     state_checkpoint_update.saved_ball
+044-045 state_station_back_update.current_mm
+044     state_station_stop_update.@SCRATCH1
+044     state_end_update.@SCRATCH1
+044     state_error_update.@SCRATCH1
+044     system_init.@SCRATCH1
+045-048 state_navigation_update.turn_duration
+045     state_follow_line_update.distance
+045     sensors_init.@SCRATCH1
+045     state_station_stop_update.@SCRATCH2
+045     state_end_update.@SCRATCH2
+045     state_end_reverse_update.@SCRATCH1
+045     state_error_update.@SCRATCH2
+045     state_checkpoint_update.@SCRATCH1
+046-048 state_follow_line_update.cmd
+046-047 ultrasonic_read_mm.pulse_us
+046     sensors_init.@SCRATCH2
+046     state_station_stop_update.@SCRATCH3
+046     state_end_update.@SCRATCH3
+046     state_error_update.@SCRATCH3
+047     state_station_stop_update.@SCRATCH4
+047     state_end_update.@SCRATCH4
+047     state_error_update.@SCRATCH4
+048-04B ultrasonic_read_mm.distance_mm
+048     state_error_update.@SCRATCH5
+049     state_follow_line_update.speed_factor
+049     state_navigation_update.@SCRATCH1
+049     state_error_update.@SCRATCH6
+04A     sensors_is_tjunction.pattern
+04A     sensors_is_lost.pattern
+04A     fsm_handle_error.error
+04A-04B ultrasonic_read_cm.pulse_us
+04A     sensors_is_intersection.pattern
+04A     state_follow_line_update.@SCRATCH1
+04A     state_error_update.@SCRATCH7
+04B     motor_get_command.pattern
+04B     state_follow_line_update.@SCRATCH2
+04B     state_error_update.@SCRATCH8
+04C-04D ultrasonic_read_cm.distance_cm
+04C     motor_get_command.@SCRATCH1
+04C     ultrasonic_read_mm.@SCRATCH1
+04C     state_follow_line_update.@SCRATCH3
+04D     ultrasonic_read_mm.@SCRATCH2
+04E-051 ultrasonic_measure_pulse.timeout_counter
+04E     ultrasonic_read_mm.@SCRATCH3
+04F     ultrasonic_read_mm.@SCRATCH4
+050-053 @DIV3232.P1
+050-053 @MUL3232.P2
+052-053 ultrasonic_measure_pulse.pulse_width
+054-057 @DIV3232.P1
+054-057 @MUL3232.P2
+054-055 ultrasonic_measure_pulse.ticks
+056-057 @DIV1616.P1
+058-059 @DIV1616.P1
+058     @MUL3232.@SCRATCH1
+058     @DIV3232.@SCRATCH1
+059     @MUL3232.@SCRATCH2
+059     @DIV3232.@SCRATCH2
+05A     @DIV1616.@SCRATCH1
+05A     @MUL3232.@SCRATCH3
+05A     @DIV3232.@SCRATCH3
+05B     @MUL3232.@SCRATCH4
+05B     @DIV3232.@SCRATCH4
+05C     @MUL3232.@SCRATCH5
+05C     @DIV3232.@SCRATCH5
+05D     @MUL3232.@SCRATCH6
+05E     portb_change_isr.portb
+05E     timer0_isr.raw_pattern
+05F-062 portb_change_isr.press_duration
+05F     timer0_isr.current_pattern
+060     timer0_isr.current_pattern
+061     sensors_chatter_filter.new_reading
+061     sensors_read_raw.pattern
+061     sensors_led_action_toggle.@SCRATCH1
+062.0   sensors_chatter_filter.all_same
+063     fsm_transition.next_state
+063     sensors_chatter_filter.i
+064     motor_reverse.speed
+064     sensors_led_status.state
+064     motor_forward.speed
+064     motor_pivot_right.speed
+064     fsm_save_checkpoint.cp
+064     sensors_is_valid_line.pattern
+064     motor_pivot_left.speed
+064     sensors_led_action.state
+064     sensors_chatter_filter.@SCRATCH1
+064     state_end_entry.@SCRATCH1
+064     peripherals_release_ball.@SCRATCH1
+065     motor_set.left_pwm
+065     @delay_ms1.P1
+065     sensors_chatter_filter.@SCRATCH2
+065     motor_pivot_right.@SCRATCH1
+065     motor_pivot_left.@SCRATCH1
+065     fsm_save_checkpoint.@SCRATCH1
+066     motor_set.right_pwm
+066     @DIV88.P1
+066     motor_pivot_right.@SCRATCH2
+066     motor_pivot_left.@SCRATCH2
+067     motor_set.direction
+067     @DIV88.P1
+068     @DIV88.@SCRATCH1
+068     motor_set.@SCRATCH1
+069     motor_set.@SCRATCH2
+FBE     CCP_1
+FBE     CCP_1_LOW
+FBF     CCP_1_HIGH
+FC1     gpio_init.ADCON1
+FE1-FE2 @READ_PACKED_MEMORY.P1
+FE1-FE2 @WRITE_PACKED_MEMORY.P2
+FE9-FEA @READ_PROGRAM_MEMORY.P1
+FE9-FEA @WRITE_PACKED_MEMORY.P2
+FE9-FEA @WRITE_PROGRAM_MEMORY.P3
+FE9-FEA @READ_PACKED_MEMORY.P4
+FF6-FF8 @READ_PROGRAM_MEMORY.P1
+FF6-FF8 @WRITE_PROGRAM_MEMORY.P2
+
+ROM Allocation:
+000004  state_idle_exit
+000006  state_follow_line_exit
+0000B6  motor_table.call
+0000D4  motor_table.data
+0000EC  timer2_isr
+000104  sensors_read_raw
+000126  @DIV88
+000150  sensors_is_valid_line
+00016C  sensors_chatter_filter
+0001D2  sensors_led_status
+0001E2  sensors_read_filtered
+0001E8  sensors_led_action
+0001F8  sensors_led_action_toggle
+00020A  timer0_isr
+0002A2  @delay_ms1
+0002C8  motor_set
+000314  motor_stop
+000320  state_station_exit
+000324  state_station_stop_exit
+000326  state_station_back_exit
+00032A  fsm_save_checkpoint
+00043E  state_navigation_exit
+00044E  state_end_exit
+000450  state_end_reverse_exit
+000454  state_error_exit
+00045C  state_checkpoint_exit
+00045E  state_idle_entry
+000464  motor_enable
+00046A  state_follow_line_entry
+000470  state_station_entry
+00047E  peripherals_grab_ball
+000484  state_station_stop_entry
+00048A  motor_reverse
+000498  state_station_back_entry
+0004A8  motor_pivot_right
+0004E6  motor_pivot_left
+000524  state_navigation_entry
+00054E  motor_forward
+00055E  peripherals_release_ball
+00057E  state_end_entry
+000598  state_end_reverse_entry
+0005A0  state_error_entry
+0005A4  state_checkpoint_entry
+0005A8  fsm_transition
+000626  @goto11058
+00066C  @goto11073
+0006B2  portb_change_isr
+00076E  gpio_init
+0007B6  sensors_init
+0007E2  ultrasonic_init
+0007EA  timers_init
+0007FE  motor_init
+000830  pwm_init
+000836  interrupts_init
+000844  system_init
+0008C4  handle_checkpoint_buttons
+000A5C  state_idle_update
+000A7C  sensors_is_intersection
+000A8E  ultrasonic_trigger
+000AB2  @DIV1616
+000AF4  ultrasonic_measure_pulse
+000BBA  ultrasonic_read_cm
+000C0E  sensors_is_tjunction
+000C20  sensors_is_lost
+000C30  sensors_get_last_valid
+000C36  motor_get_command
+000C62  fsm_handle_error
+000C7A  state_follow_line_update
+000E62  state_station_update
+000EA8  state_station_stop_update
+000EFA  @MUL3232
+000F50  @DIV3232
+000FDE  ultrasonic_read_mm
+001078  state_station_back_update
+0010EC  state_navigation_update
+00115C  state_end_update
+0011CA  motor_disable
+0011E2  state_end_reverse_update
+001246  state_error_update
+0012E2  state_checkpoint_update
+00142C  @cinit1
+00142C  MAIN
+0014AA  @cinit2
+
+Project Directory:
+    D:\intern\code\
+
+Project Files:
+    main.c                                                  [01-Apr-26 16:48  CRC=1ABF49C1]
+    main.h                                                  [01-Apr-26 15:17  CRC=888753CC]
+    config.h                                                [02-Apr-26 10:28  CRC=54B9C917]
+    C:\Program Files (x86)\PICC\Devices\18F2685.h           [12-Nov-13 14:35  CRC=2FC90A7F]
+    fsm.h                                                   [31-Mar-26 13:39  CRC=5F486EFC]
+    motor.h                                                 [30-Mar-26 10:23  CRC=1E150041]
+    sensors.h                                               [01-Apr-26 15:20  CRC=6A95C1B3]
+    ultrasonic.h                                            [30-Mar-26 10:21  CRC=EDE71ABC]
+    C:\Program Files (x86)\PICC\Drivers\stdint.h            [30-Dec-08 09:01  CRC=9F7F640F]
+    C:\Program Files (x86)\PICC\Drivers\stdbool.h           [21-May-12 10:29  CRC=815AEDE8]
+    sensors.c                                               [01-Apr-26 15:17  CRC=413A895F]
+    motor.c                                                 [30-Mar-26 10:23  CRC=39080BCC]
+    ultrasonic.c                                            [30-Mar-26 10:21  CRC=46253FB5]
+    fsm.c                                                   [01-Apr-26 16:48  CRC=86EFCEF6]
+
+Source signature=ECC58192
+
+Units:
+    main (main)
+
+Compiler Settings:
+    Processor:      PIC18F2685
+    Pointer Size:   16
+    ADC Range:      0-255
+    Opt Level:      9
+    Short,Int,Long: UNSIGNED: 1,8,16
+    Float,Double:   32,32
+
+Output Files:
+    XREF file:   main.xsym
+    Errors:      main.err
+    Ext Symbols: main.esym
+    INHX32:      main.hex
+    Symbols:     main.sym
+    List:        main.lst
+    Debug/COFF:  main.cof
+    Project:     main.ccspjt
+    Call Tree:   main.tre
+    Statistics:  main.STA

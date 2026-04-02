@@ -1,0 +1,22 @@
+[PROJECT]
+Target=test_led.hex
+Processor_Text=PIC18F2685
+CCSVersion=5.015
+Compiler=PCH
+[Target Data]
+FileList=test_led.c
+[Directories]
+Include=C:\Program Files (x86)\PICC\Devices\;C:\Program Files (x86)\PICC\Drivers\
+[test_led.c]
+Type=4
+[mru-list]
+1=test_led.c
+[Opened Files]
+1=test_led.c
+2=test_motor.c
+3=test_sensor.c
+4=C:\Program Files (x86)\PICC\Devices\18F2685.h
+5=
+[Units]
+Count=1
+1=test_led (main)

@@ -1,0 +1,45 @@
+
+ROM used:   30/98304 (0%)
+            30/98304 (0%) including unused fragments
+
+            0.0 Average locations per line
+            6.0 Average locations per statement
+
+RAM used:   4/3328 (0%) at main() level
+            4/3328 (0%) worst case
+
+Stack used: 0 worst case (0 in main + 0 for interrupts)
+Stack size: 31
+
+Lines Stmts  %   Files
+----- ----- ---  -----
+   25     5 100  test_led.c
+  753     0   0  C:\Program Files (x86)\PICC\Devices\18F2685.h
+----- -----
+  778     5 Total
+
+Page ROM  %  RAM   Vol Diff  Functions:
+---- --- --- ---   --- ----  ----------
+0     26  43    0    72  1.6  main
+ Inline         0             @cinit1
+
+Program metrics:
+    Functions               1
+    Statements              5
+    Comments                137
+    Volume (V)              74
+    Difficulty (D)          1.5
+    Effort to implement (E) 108
+    Time to implement (T)   0 minutes
+    Est Delivered Bugs (B)  0
+    Cyclomatic Complexity   1
+    Maintainability (MI)    89
+
+ Segment     Used  Free
+-----------  ----  ----
+00000-00002     4  0  
+00004-0FFFE    26  65506  
+10000-17FFE     0  32768  
+
+
+

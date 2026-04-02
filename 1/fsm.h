@@ -17,6 +17,7 @@ typedef enum {
     STATE_STATION_BACK,       // Reversing from station
     STATE_NAVIGATION,         // Turning at junction (T or intersection)
     STATE_END,                // Reached END point
+    STATE_END_REVERSE,        // Reversing after ball release
     STATE_ERROR,              // Error recovery state
     STATE_CHECKPOINT          // Checkpoint management state
 } SystemState_t;
@@ -46,9 +47,9 @@ typedef enum {
 // CHECKPOINT ENUMERATION
 // ============================================================================
 typedef enum {
-    CP_START = 0,            // Starting position
-    CP_AFTER_STATION,        // After ball pickup
-    CP_BEFORE_END            // Before END point
+    CP_START = 1,            // Starting position (checkpoint 1)
+    CP_AFTER_NAVIGATION,     // After navigation success (checkpoint 2)
+    CP_BEFORE_END            // Before END point (checkpoint 3)
 } Checkpoint_t;
 
 // ============================================================================
@@ -78,6 +79,7 @@ void state_station_stop_entry(void);
 void state_station_back_entry(void);
 void state_navigation_entry(void);
 void state_end_entry(void);
+void state_end_reverse_entry(void);
 void state_error_entry(void);
 void state_checkpoint_entry(void);
 
@@ -89,6 +91,7 @@ void state_station_stop_update(void);
 void state_station_back_update(void);
 void state_navigation_update(void);
 void state_end_update(void);
+void state_end_reverse_update(void);
 void state_error_update(void);
 void state_checkpoint_update(void);
 
@@ -100,6 +103,7 @@ void state_station_stop_exit(void);
 void state_station_back_exit(void);
 void state_navigation_exit(void);
 void state_end_exit(void);
+void state_end_reverse_exit(void);
 void state_error_exit(void);
 void state_checkpoint_exit(void);
 

@@ -1,0 +1,507 @@
+////////////////////////////////////////////////////////////////////////////////
+// FILE: fsm.c
+// DESC: Finite State Machine implementation - 9 states for line follower
+////////////////////////////////////////////////////////////////////////////////
+
+#include "main.h"
+
+// ============================================================================
+// GLOBAL FSM VARIABLES
+// ============================================================================
+volatile SystemState_t current_state = STATE_IDLE;
+volatile SystemState_t previous_state = STATE_IDLE;
+ErrorType_t current_error = ERR_NONE;
+NavDirection_t nav_direction = NAV_STRAIGHT;
+Checkpoint_t current_checkpoint = CP_START;  // B?t d?u t? checkpoint 1
+volatile int1 run_flag = FALSE;
+volatile int1 ball_grabbed = FALSE;
+int8 retry_count = 0;
+
+// Bi?n d?m cho checkpoint logic
+static int8 intersection_count = 0;      // Ð?m s? l?n g?p pattern 111
+static int8 right_turn_count = 0;        // Ð?m s? l?n l?ch ph?i
+
+// Bi?n di?u khi?n LED2 nháy
+volatile int1 led2_blink_enable = FALSE; // Cho phép LED2 nháy
+volatile int8 led2_blink_count = 0;      // Ð?m s? l?n nháy
+
+// ============================================================================
+// PRIVATE FSM VARIABLES
+// ============================================================================
+static int32 state_entry_time = 0;      // Time when state was entered
+static int8 line_lost_counter = 0;      // Counter for consecutive line lost readings
+static int32 nav_start_time = 0;        // Navigation start time
+static int16 reverse_distance_mm = 0;   // Distance traveled in reverse
+static int16 last_mm = 0;               // Last ultrasonic reading for reverse tracking
+static int1 station_detected = FALSE;   // Station proximity flag
+static int1 end_detected = FALSE;       // End point proximity flag
+
+#define LINE_LOST_COUNT_MAX 5  // 5 l?n liên ti?p @ 10ms/loop = 50ms
+
+// Pattern definitions for checkpoint logic
+#define PATTERN_INTERSECTION 0x07  // 111 - intersection
+#define PATTERN_RIGHT_LIGHT  0x01  // 001 - l?ch ph?i nh?
+#define PATTERN_RIGHT_HEAVY  0x03  // 011 - l?ch ph?i m?nh
+
+// ============================================================================
+// EEPROM ADDRESSES FOR CHECKPOINT DATA
+// ============================================================================
+#define EEPROM_CHECKPOINT    0x00  // Current checkpoint
+#define EEPROM_STATE         0x01  // State to resume from
+#define EEPROM_NAV_DIR       0x02  // Navigation direction
+#define EEPROM_BALL_STATUS   0x03  // Ball grabbed status (0/1)
+#define EEPROM_INTERSECT_CNT 0x04  // Intersection counter
+#define EEPROM_RIGHT_CNT     0x05  // Right turn counter
+
+// ============================================================================
+// STATE TRANSITION FUNCTION
+// Handles entry/exit/update lifecycle
+// ============================================================================
+void fsm_transition(SystemState_t next_state) {
+    // Call exit function for current state
+    switch (current_state) {
+        case STATE_IDLE:           state_idle_exit(); break;
+        case STATE_FOLLOW_LINE:    state_follow_line_exit(); break;
+        case STATE_STATION:        state_station_exit(); break;
+        case STATE_STATION_STOP:   state_station_stop_exit(); break;
+        case STATE_STATION_BACK:   state_station_back_exit(); break;
+        case STATE_NAVIGATION:     state_navigation_exit(); break;
+        case STATE_END:            state_end_exit(); break;
+        case STATE_ERROR:          state_error_exit(); break;
+        case STATE_CHECKPOINT:     state_checkpoint_exit(); break;
+    }
+    
+    // Update states
+    previous_state = current_state;
+    current_state = next_state;
+    state_entry_time = ms_tick;
+    
+    // Call entry function for new state
+    switch (next_state) {
+        case STATE_IDLE:           state_idle_entry(); break;
+        case STATE_FOLLOW_LINE:    state_follow_line_entry(); break;
+        case STATE_STATION:        state_station_entry(); break;
+        case STATE_STATION_STOP:   state_station_stop_entry(); break;
+        case STATE_STATION_BACK:   state_station_back_entry(); break;
+        case STATE_NAVIGATION:     state_navigation_entry(); break;
+        case STATE_END:            state_end_entry(); break;
+        case STATE_ERROR:          state_error_entry(); break;
+        case STATE_CHECKPOINT:     state_checkpoint_entry(); break;
+    }
+}
+
+// ============================================================================
+// STATE: IDLE
+// Waiting for RUN button press
+// ============================================================================
+void state_idle_entry(void) {
+    motor_stop();
+    // LED1 OFF when in IDLE state
+    sensors_led_status(FALSE);
+    run_flag = FALSE;
+}
+
+void state_idle_update(void) {
+    // Only respond to RUN button if system is enabled
+    if (system_enabled && run_pressed) {
+        run_pressed = FALSE;
+        fsm_transition(STATE_FOLLOW_LINE);
+    }
+}
+
+void state_idle_exit(void) {
+    // LED1 ON when starting mission
+    sensors_led_status(TRUE);
+}
+
+// ============================================================================
+// STATE: FOLLOW_LINE
+// Normal line following mode
+// ============================================================================
+void state_follow_line_entry(void) {
+    motor_enable();
+    line_lost_counter = 0;
+}
+
+void state_follow_line_update(void) {
+    int8 pattern;
+    int8 distance;
+    MotorCmd_t cmd;
+
+    pattern = sensors_read_filtered();
+    
+    // Checkpoint logic - d?m pattern 111 và l?ch ph?i
+    if (current_checkpoint >= CP_AFTER_NAVIGATION) {
+        if (pattern == PATTERN_INTERSECTION) {
+            intersection_count++;
+        }
+        if (pattern == PATTERN_RIGHT_LIGHT || pattern == PATTERN_RIGHT_HEAVY) {
+            right_turn_count++;
+        }
+        
+        // Sau khi x? lý d? pattern ? checkpoint g?n END
+        if (intersection_count >= 1 && right_turn_count >= 2) {
+            fsm_save_checkpoint(CP_BEFORE_END);
+            intersection_count = 0;  // Reset counters
+            right_turn_count = 0;
+        }
+    }
+    
+    // Check for intersection
+    if (sensors_is_intersection(pattern)) {
+        motor_forward(BASE_PWM);
+        delay_ms(CROSS_DELAY_MS);
+        return;
+    }
+    
+    // Read ultrasonic
+    distance = ultrasonic_read_cm();
+    
+    // T-junction x? lý
+    if (sensors_is_tjunction(pattern)) {
+        if (distance != ULTRA_ERROR && distance <= (STOP_CM_STATION + 3) && !ball_grabbed) {
+            station_detected = TRUE;
+            nav_direction = NAV_RIGHT;
+            fsm_transition(STATE_STATION);
+            return;
+        }
+
+        nav_direction = NAV_RIGHT;
+        fsm_transition(STATE_NAVIGATION);
+        return;
+    }
+    
+    // END detection
+    if (distance != ULTRA_ERROR && distance <= STOP_CM_END && ball_grabbed) {
+        end_detected = TRUE;
+        fsm_transition(STATE_END);
+        return;
+    }
+    
+    // Line lost
+    if (sensors_is_lost(pattern)) {
+        line_lost_counter++;
+        
+        if (line_lost_counter >= LINE_LOST_COUNT_MAX) {
+            // Th? gi?m t?c tru?c khi báo l?i
+            if (line_lost_counter < LINE_LOST_COUNT_MAX + 10) {
+                cmd = motor_get_command(sensors_get_last_valid());
+                motor_set(cmd.left_pwm / 2, cmd.right_pwm / 2, cmd.direction);
+            } else {
+                fsm_handle_error(ERR_LOST_LINE);
+            }
+            return;
+        }
+        
+        // Duy trì hu?ng cu v?i t?c d? gi?m d?n
+        cmd = motor_get_command(sensors_get_last_valid());
+        int8 speed_factor = (LINE_LOST_COUNT_MAX - line_lost_counter) * 20;
+        motor_set(cmd.left_pwm - speed_factor, 
+                  cmd.right_pwm - speed_factor, 
+                  cmd.direction);
+        return;
+    }
+    
+    line_lost_counter = 0;  // Reset khi tìm l?i line
+
+    // Normal follow
+    cmd = motor_get_command(pattern);
+    motor_set(cmd.left_pwm, cmd.right_pwm, cmd.direction);
+}
+
+void state_follow_line_exit(void) {
+    // Nothing to clean up
+}
+
+// ============================================================================
+// STATE: STATION
+// Approaching ball pickup station
+// ============================================================================
+void state_station_entry(void) {
+    motor_set(SLOW_PWM, SLOW_PWM, DIR_FORWARD);  // Slow down
+}
+
+void state_station_update(void) {
+    int8 distance;
+
+    distance = ultrasonic_read_cm();
+    
+    if (distance != ULTRA_ERROR && distance <= STOP_CM_STATION) {
+        fsm_transition(STATE_STATION_STOP);
+        return;
+    }
+    
+    motor_set(SLOW_PWM, SLOW_PWM, DIR_FORWARD);
+}
+
+void state_station_exit(void) {
+    motor_stop();
+}
+
+// ============================================================================
+// STATE: STATION_STOP
+// Stopped at station, grabbing ball
+// ============================================================================
+void state_station_stop_entry(void) {
+    motor_stop();
+    peripherals_grab_ball();  // Activate grabber
+}
+
+void state_station_stop_update(void) {
+    // Ch? th?i gian co c?u l?y bi ho?t d?ng (2 giây)
+    if ((ms_tick - state_entry_time) >= GRAB_MS) {
+        ball_grabbed = TRUE;  // Set flag sau khi co c?u ho?t d?ng xong
+        
+        // B?t d?u nháy LED2 d? báo hi?u l?y bi thành công
+        led2_blink_enable = TRUE;
+        led2_blink_count = 0;
+        
+        nav_direction = NAV_RIGHT;  // Set hu?ng tru?c khi chuy?n state
+        fsm_transition(STATE_STATION_BACK);
+    }
+}
+
+void state_station_stop_exit(void) {
+    // Ball is grabbed, LED2 will blink via ISR
+}
+
+// ============================================================================
+// STATE: STATION_BACK
+// Reversing from station (250mm)
+// ============================================================================
+void state_station_back_entry(void) {
+    reverse_distance_mm = 0;
+    last_mm = 0;  // Reset tracking variable
+    motor_reverse(SLOW_PWM);
+}
+
+void state_station_back_update(void) {
+    int16 current_mm;
+
+    current_mm = ultrasonic_read_mm();
+    
+    if (last_mm == 0) {
+        last_mm = current_mm;
+    }
+    
+    if (current_mm != 0xFFFF && current_mm > last_mm) {
+        reverse_distance_mm += (current_mm - last_mm);
+        last_mm = current_mm;
+    }
+    
+    if (reverse_distance_mm >= REVERSE_MM) {
+        last_mm = 0;
+        fsm_transition(STATE_NAVIGATION);
+    }
+}
+
+void state_station_back_exit(void) {
+    motor_stop();
+}
+
+// ============================================================================
+// STATE: NAVIGATION
+// Turning at junction (pivot turn right)
+// ============================================================================
+void state_navigation_entry(void) {
+    nav_start_time = ms_tick;
+    
+    // Start pivot turn based on direction
+    if (nav_direction == NAV_RIGHT) {
+        motor_pivot_right(BASE_PWM);
+    } else if (nav_direction == NAV_LEFT) {
+        motor_pivot_left(BASE_PWM);
+    }
+}
+
+void state_navigation_update(void) {
+    int8 pattern;
+    int32 turn_duration;
+
+    pattern = sensors_read_filtered();
+    turn_duration = ms_tick - nav_start_time;
+    
+    if (turn_duration < NAV_MIN_MS) {
+        return;
+    }
+    
+    // ? 0b010 ? CCS không h? tr?
+    // ? dùng hex
+    if ((pattern & 0x02) != 0) {
+        fsm_transition(STATE_FOLLOW_LINE);
+    }
+    
+    if (turn_duration > 2000) {
+        fsm_handle_error(ERR_LOST_LINE);
+    }
+}
+
+void state_navigation_exit(void) {
+    motor_stop();
+    delay_ms(100);  // Brief pause to stabilize
+    
+    // Luu checkpoint sau khi navigation thành công
+    fsm_save_checkpoint(CP_AFTER_NAVIGATION);
+}
+
+// ============================================================================
+// STATE: END
+// Reached END point, release ball
+// ============================================================================
+void state_end_entry(void) {
+    // Move forward slightly to ensure contact
+    motor_forward(SLOW_PWM);
+    delay_ms(300);
+    motor_stop();
+    
+    // Release ball
+    peripherals_release_ball();
+    
+    // LED1 OFF when mission completed
+    sensors_led_status(FALSE);
+}
+
+void state_end_update(void) {
+    // Wait for release duration
+    if ((ms_tick - state_entry_time) >= RELEASE_MS) {
+        sensors_led_action(FALSE);  // LED2 OFF
+        sensors_led_status(FALSE);  // LED1 OFF (already done in entry)
+        ball_grabbed = FALSE;
+        
+        // Stop and wait for manual reset
+        motor_disable();
+        delay_ms(1000);
+        reset_cpu();  // Reset to start new cycle
+    }
+}
+
+void state_end_exit(void) {
+    // System will reset
+}
+
+// ============================================================================
+// STATE: ERROR
+// Error recovery state
+// ============================================================================
+void state_error_entry(void) {
+    motor_stop();
+    sensors_led_status(FALSE);  // Blink LED to indicate error
+}
+
+void state_error_update(void) {
+    // Blink status LED
+    if ((ms_tick % 500) < 250) {
+        sensors_led_status(TRUE);
+    } else {
+        sensors_led_status(FALSE);
+    }
+    
+    // Wait for RUN button press to resume from checkpoint (only if system enabled)
+    if (system_enabled && run_pressed) {
+        run_pressed = FALSE;
+        retry_count++;
+        
+        if (retry_count > MAX_RETRIES) {
+            // Too many retries, stay in error state
+            return;
+        }
+        
+        fsm_transition(STATE_CHECKPOINT);
+    }
+}
+
+void state_error_exit(void) {
+    sensors_led_status(TRUE);
+}
+
+// ============================================================================
+// STATE: CHECKPOINT
+// Resume from saved checkpoint
+// ============================================================================
+void state_checkpoint_entry(void) {
+    // Ð?c checkpoint t? EEPROM s? du?c th?c hi?n trong update
+    motor_stop();
+}
+
+void state_checkpoint_update(void) {
+    // Khôi ph?c tr?ng thái t? EEPROM
+    current_checkpoint = read_eeprom(EEPROM_CHECKPOINT);
+    nav_direction = read_eeprom(EEPROM_NAV_DIR);
+    int8 saved_ball = read_eeprom(EEPROM_BALL_STATUS);
+    intersection_count = read_eeprom(EEPROM_INTERSECT_CNT);
+    right_turn_count = read_eeprom(EEPROM_RIGHT_CNT);
+    
+    // Khôi ph?c ball status (co c?u thu?n co khí)
+    ball_grabbed = (saved_ball == 1);
+    // LED2 luôn OFF khi restore - ch? nháy t?i station
+    
+    // Resume state d?a trên checkpoint
+    switch (current_checkpoint) {
+        case CP_START:  // Checkpoint 1
+            // B?t d?u t? d?u - chua có bi
+            ball_grabbed = FALSE;
+            sensors_led_action(FALSE);
+            intersection_count = 0;
+            right_turn_count = 0;
+            fsm_transition(STATE_FOLLOW_LINE);
+            break;
+            
+        case CP_AFTER_NAVIGATION:  // Checkpoint 2
+            // Sau navigation thành công, b?t d?u d?m pattern
+            ball_grabbed = TRUE;
+            sensors_led_action(FALSE);  // LED2 OFF - ch? nháy t?i station
+            // Counters dã du?c khôi ph?c t? EEPROM
+            fsm_transition(STATE_FOLLOW_LINE);
+            break;
+            
+        case CP_BEFORE_END:  // Checkpoint 3
+            // Có bi, dang trên du?ng d?n END
+            ball_grabbed = TRUE;
+            sensors_led_action(FALSE);  // LED2 OFF - ch? nháy t?i station
+            fsm_transition(STATE_FOLLOW_LINE);
+            break;
+            
+        default:
+            // Checkpoint không h?p l? - reset v? d?u
+            ball_grabbed = FALSE;
+            sensors_led_action(FALSE);
+            intersection_count = 0;
+            right_turn_count = 0;
+            fsm_transition(STATE_FOLLOW_LINE);
+            break;
+    }
+}
+
+void state_checkpoint_exit(void) {
+    // Nothing to clean up
+}
+
+// ============================================================================
+// ERROR HANDLING
+// ============================================================================
+void fsm_handle_error(ErrorType_t error) {
+    current_error = error;
+    fsm_transition(STATE_ERROR);
+}
+
+// ============================================================================
+// SAVE CHECKPOINT TO EEPROM
+// ============================================================================
+void fsm_save_checkpoint(Checkpoint_t cp) {
+    current_checkpoint = cp;
+    write_eeprom(EEPROM_CHECKPOINT, cp);
+    write_eeprom(EEPROM_STATE, current_state);
+    write_eeprom(EEPROM_NAV_DIR, nav_direction);
+    write_eeprom(EEPROM_BALL_STATUS, ball_grabbed ? 1 : 0);
+    write_eeprom(EEPROM_INTERSECT_CNT, intersection_count);
+    write_eeprom(EEPROM_RIGHT_CNT, right_turn_count);
+}
+
+// ============================================================================
+// RESTORE FROM CHECKPOINT
+// ============================================================================
+void fsm_restore_checkpoint(void) {
+    fsm_transition(STATE_CHECKPOINT);
+}
+
+//done

@@ -1,0 +1,645 @@
+////////////////////////////////////////////////////////////////////////////////
+// FILE: test_modules.c
+// DESC: Test program for individual modules with LED status indicators
+// LED1 (STATUS): System status - ON=running, BLINK=error, OFF=idle
+// LED2 (ACTION): Module activity - BLINK=active test, ON=success, OFF=fail
+// USAGE: Comment/uncomment ONE define below, compile, and flash to PIC
+////////////////////////////////////////////////////////////////////////////////
+
+#include "main.h"
+
+// ============================================================================
+// UART SETUP FOR DEBUG OUTPUT (Optional - remove if no UART hardware)
+// ============================================================================
+// #use rs232(baud=9600, xmit=PIN_C6, rcv=PIN_C7, ERRORS)
+
+// ============================================================================
+// SELECT TEST MODE (Comment/uncomment ONE at a time)
+// ============================================================================
+#define TEST_SENSORS          // Test IR sensors and chatter filter
+//#define TEST_MOTOR            // Test all motor movements
+//#define TEST_ULTRASONIC       // Test distance measurement
+//#define TEST_FSM_STATES       // Test FSM state transitions
+//#define TEST_CHECKPOINT       // Test checkpoint save/restore logic
+//#define TEST_BUTTON_LOGIC     // Test button handling and interrupts
+//#define TEST_FULL_INTEGRATION // Test all modules together
+//#define TEST_FSM_SIMULATION   // Simulate complete robot mission
+
+// EEPROM addresses (copied from fsm.c)
+#define EEPROM_CHECKPOINT    0x00
+#define EEPROM_STATE         0x01
+
+// ============================================================================
+// LED STATUS INDICATORS
+// ============================================================================
+void led_indicate_start(void) {
+    sensors_led_status(TRUE);   // LED1 ON - test starting
+    sensors_led_action(FALSE);  // LED2 OFF - reset
+    delay_ms(500);
+}
+
+void led_indicate_success(void) {
+    sensors_led_status(TRUE);   // LED1 ON - system OK
+    sensors_led_action(TRUE);   // LED2 ON - test passed
+}
+
+void led_indicate_fail(void) {
+    sensors_led_status(FALSE);  // LED1 OFF - system error
+    sensors_led_action(FALSE);  // LED2 OFF - test failed
+}
+
+void led_indicate_activity(void) {
+    static int1 blink_state = FALSE;
+    blink_state = !blink_state;
+    sensors_led_action(blink_state);  // LED2 blink - activity
+}
+
+void led_indicate_error(void) {
+    // Both LEDs blink alternately for error
+    for (int i = 0; i < 6; i++) {
+        sensors_led_status(i % 2);
+        sensors_led_action(!(i % 2));
+        delay_ms(200);
+    }
+}
+
+// ============================================================================
+// TEST: SENSORS
+// ============================================================================
+#ifdef TEST_SENSORS
+void test_sensors(void) {
+    int8 test_count = 0;
+    int8 valid_readings = 0;
+    
+    led_indicate_start();
+    
+    while (TRUE) {
+        int8 raw = sensors_read_raw();
+        int8 filtered = sensors_read_filtered();
+        int8 last_valid = sensors_get_last_valid();
+        
+        // LED1: Line detection - ON when any sensor sees black line
+        if (filtered != 0b000) {  // Any sensor detects line
+            sensors_led_status(TRUE);   // LED1 ON - line detected
+        } else {
+            sensors_led_status(FALSE);  // LED1 OFF - all white surface
+        }
+        
+        // Test logic validation with LED2
+        if (sensors_is_valid_line(filtered)) {
+            valid_readings++;
+            sensors_led_action(TRUE);   // LED2 ON - valid line pattern
+        } else if (sensors_is_lost(filtered)) {
+            sensors_led_action(FALSE);  // LED2 OFF - line lost
+        } else if (sensors_is_intersection(filtered)) {
+            // Both LEDs ON for intersection
+            sensors_led_status(TRUE);
+            sensors_led_action(TRUE);
+        } else if (sensors_is_tjunction(filtered)) {
+            // LED1 ON (line detected), LED2 blink (special case)
+            sensors_led_status(TRUE);
+            led_indicate_activity();
+        }
+        
+        test_count++;
+        if (test_count >= 100) {
+            if (valid_readings > 80) {
+                led_indicate_success();
+            } else {
+                led_indicate_error();
+            }
+            test_count = 0;
+            valid_readings = 0;
+            delay_ms(2000);  // Pause between test cycles
+        }
+        
+        delay_ms(100);
+    }
+}
+#endif
+
+// ============================================================================
+// TEST: MOTOR
+// ============================================================================
+#ifdef TEST_MOTOR
+void test_motor(void) {
+    led_indicate_start();
+    
+    motor_enable();
+    
+    while (TRUE) {
+        // Test 1: Forward movement
+        sensors_led_status(TRUE);
+        led_indicate_activity();
+        motor_forward(BASE_PWM);
+        delay_ms(2000);
+        motor_stop();
+        led_indicate_success();
+        delay_ms(500);
+        
+        // Test 2: Reverse movement
+        led_indicate_activity();
+        motor_reverse(BASE_PWM);
+        delay_ms(2000);
+        motor_stop();
+        led_indicate_success();
+        delay_ms(500);
+        
+        // Test 3: Turn right
+        led_indicate_activity();
+        motor_turn_right(BASE_PWM);
+        delay_ms(1000);
+        motor_stop();
+        led_indicate_success();
+        delay_ms(500);
+        
+        // Test 4: Turn left
+        led_indicate_activity();
+        motor_turn_left(BASE_PWM);
+        delay_ms(1000);
+        motor_stop();
+        led_indicate_success();
+        delay_ms(500);
+        
+        // Test 5: Pivot right
+        led_indicate_activity();
+        motor_pivot_right(BASE_PWM);
+        delay_ms(1000);
+        motor_stop();
+        led_indicate_success();
+        delay_ms(500);
+        
+        // Test 6: Pivot left
+        led_indicate_activity();
+        motor_pivot_left(BASE_PWM);
+        delay_ms(1000);
+        motor_stop();
+        led_indicate_success();
+        delay_ms(500);
+        
+        // Test 7: Lookup table validation
+        for (int8 pattern = 0; pattern <= 7; pattern++) {
+            MotorCmd_t cmd = motor_get_command(pattern);
+            motor_set(cmd.left_pwm, cmd.right_pwm, cmd.direction);
+            led_indicate_activity();
+            delay_ms(300);
+            motor_stop();
+            delay_ms(200);
+        }
+        
+        led_indicate_success();
+        delay_ms(2000);
+    }
+}
+#endif
+
+// ============================================================================
+// TEST: ULTRASONIC
+// ============================================================================
+#ifdef TEST_ULTRASONIC
+void test_ultrasonic(void) {
+    int8 error_count = 0;
+    int8 valid_count = 0;
+    
+    led_indicate_start();
+    
+    while (TRUE) {
+        int8 distance_cm = ultrasonic_read_cm();
+        int16 distance_mm = ultrasonic_read_mm();
+        
+        if (distance_cm == ULTRA_ERROR) {
+            error_count++;
+            led_indicate_fail();
+            
+            if (error_count > 10) {
+                led_indicate_error();
+                delay_ms(2000);
+                error_count = 0;
+            }
+        } else {
+            valid_count++;
+            
+            // Test distance thresholds
+            if (distance_cm <= STOP_CM_STATION) {
+                sensors_led_status(TRUE);
+                sensors_led_action(TRUE);
+            } else if (distance_cm <= STOP_CM_END) {
+                sensors_led_status(TRUE);
+                led_indicate_activity();
+            } else {
+                led_indicate_success();
+            }
+            
+            error_count = 0;  // Reset error count on valid reading
+        }
+        
+        // Test summary every 20 readings
+        if ((valid_count + error_count) % 20 == 0) {
+            if (error_count < 3) {
+                led_indicate_success();
+            } else {
+                led_indicate_error();
+            }
+        }
+        
+        delay_ms(500);
+    }
+}
+#endif
+
+// ============================================================================
+// TEST: FSM STATES
+// ============================================================================
+#ifdef TEST_FSM_STATES
+void test_fsm_states(void) {
+    led_indicate_start();
+    
+    // Test all state transitions
+    SystemState_t test_states[] = {
+        STATE_IDLE, STATE_FOLLOW_LINE, STATE_STATION, 
+        STATE_STATION_STOP, STATE_STATION_BACK, STATE_NAVIGATION,
+        STATE_END, STATE_END_REVERSE, STATE_ERROR, STATE_CHECKPOINT
+    };
+    
+    for (int8 i = 0; i < 10; i++) {
+        // Transition to test state
+        fsm_transition(test_states[i]);
+        
+        if (current_state == test_states[i]) {
+            led_indicate_success();
+        } else {
+            led_indicate_fail();
+        }
+        
+        delay_ms(1000);
+    }
+    
+    led_indicate_success();
+    
+    while (TRUE) {
+        delay_ms(1000);
+    }
+}
+#endif
+
+// ============================================================================
+// TEST: CHECKPOINT
+// ============================================================================
+#ifdef TEST_CHECKPOINT
+void test_checkpoint(void) {
+    led_indicate_start();
+    
+    // Test checkpoint save/restore
+    Checkpoint_t test_checkpoints[] = {CP_START, CP_AFTER_NAVIGATION, CP_BEFORE_END};
+    
+    for (int8 i = 0; i < 3; i++) {
+        // Save checkpoint
+        ball_grabbed = (i > 0);  // Have ball after first checkpoint
+        fsm_save_checkpoint(test_checkpoints[i]);
+        led_indicate_activity();
+        delay_ms(500);
+        
+        // Simulate system reset
+        current_checkpoint = CP_START;
+        ball_grabbed = FALSE;
+        
+        // Restore checkpoint
+        fsm_restore_checkpoint();
+        delay_ms(100);  // Allow state transition
+        
+        if (current_checkpoint == test_checkpoints[i]) {
+            led_indicate_success();
+        } else {
+            led_indicate_fail();
+        }
+        
+        delay_ms(1000);
+    }
+    
+    led_indicate_success();
+    
+    while (TRUE) {
+        delay_ms(1000);
+    }
+}
+#endif
+
+// ============================================================================
+// TEST: BUTTON LOGIC
+// ============================================================================
+#ifdef TEST_BUTTON_LOGIC
+void test_button_logic(void) {
+    led_indicate_start();
+    
+    while (TRUE) {
+        // Test system enable button
+        if (system_enabled) {
+            sensors_led_status(TRUE);  // LED1 ON when system enabled
+        } else {
+            sensors_led_status(FALSE); // LED1 OFF when system disabled
+        }
+        
+        // Test STOP button
+        if (stop_pressed) {
+            stop_pressed = FALSE;
+            if (cp1_long_press) {
+                led_indicate_error();  // Both LEDs blink for reset
+            } else {
+                led_indicate_activity();  // LED2 blink for cycle
+            }
+        }
+        
+        // Test RUN button
+        if (run_pressed) {
+            run_pressed = FALSE;
+            led_indicate_success();  // Both LEDs ON for run
+        }
+        
+        // Display current checkpoint
+        switch (current_checkpoint) {
+            case CP_START:
+                sensors_led_action(FALSE);  // LED2 OFF for CP1
+                break;
+            case CP_AFTER_NAVIGATION:
+                led_indicate_activity();    // LED2 blink for CP2
+                break;
+            case CP_BEFORE_END:
+                sensors_led_action(TRUE);   // LED2 ON for CP3
+                break;
+        }
+        
+        delay_ms(500);
+    }
+}
+#endif
+
+// ============================================================================
+// TEST: FULL INTEGRATION
+// ============================================================================
+#ifdef TEST_FULL_INTEGRATION
+void test_integration(void) {
+    led_indicate_start();
+    
+    // Test 1: System initialization
+    sensors_led_status(TRUE);
+    delay_ms(500);
+    
+    // Test 2: Sensor reading and validation
+    int8 valid_sensors = 0;
+    for (int i = 0; i < 10; i++) {
+        int8 pattern = sensors_read_filtered();
+        
+        if (sensors_is_valid_line(pattern)) {
+            valid_sensors++;
+            led_indicate_activity();
+        }
+        delay_ms(200);
+    }
+    
+    // Test 3: Motor control and lookup table
+    motor_enable();
+    for (int8 pattern = 0; pattern <= 7; pattern++) {
+        MotorCmd_t cmd = motor_get_command(pattern);
+        motor_set(cmd.left_pwm, cmd.right_pwm, cmd.direction);
+        led_indicate_activity();
+        delay_ms(300);
+        motor_stop();
+        delay_ms(200);
+    }
+    
+    // Test 4: Ultrasonic sensor
+    int8 valid_ultra = 0;
+    for (int i = 0; i < 5; i++) {
+        int8 dist = ultrasonic_read_cm();
+        if (dist != ULTRA_ERROR) {
+            valid_ultra++;
+            led_indicate_activity();
+        }
+        delay_ms(500);
+    }
+    
+    // Test 5: FSM state transitions
+    fsm_transition(STATE_FOLLOW_LINE);
+    led_indicate_activity();
+    delay_ms(1000);
+    
+    fsm_transition(STATE_STATION);
+    led_indicate_activity();
+    delay_ms(1000);
+    
+    fsm_transition(STATE_IDLE);
+    
+    // Test 6: Checkpoint system
+    fsm_save_checkpoint(CP_AFTER_NAVIGATION);
+    led_indicate_activity();
+    
+    delay_ms(500);
+    Checkpoint_t loaded = read_eeprom(0x00);  // EEPROM_CHECKPOINT
+    
+    // Test 7: Error handling
+    fsm_handle_error(ERR_LOST_LINE);
+    led_indicate_error();
+    delay_ms(1000);
+    
+    // Overall result
+    if (valid_sensors >= 8 && valid_ultra >= 3) {
+        led_indicate_success();
+        
+        // Success pattern - both LEDs flash together
+        for (int i = 0; i < 5; i++) {
+            sensors_led_status(TRUE);
+            sensors_led_action(TRUE);
+            delay_ms(200);
+            sensors_led_status(FALSE);
+            sensors_led_action(FALSE);
+            delay_ms(200);
+        }
+    } else {
+        led_indicate_error();
+    }
+    
+    while (TRUE) {
+        delay_ms(1000);
+    }
+}
+#endif
+
+// ============================================================================
+// TEST: FSM SIMULATION (Complete mission simulation)
+// ============================================================================
+#ifdef TEST_FSM_SIMULATION
+void test_fsm_simulation(void) {
+    led_indicate_start();
+    
+    // Phase 1: System startup
+    system_enabled = TRUE;
+    current_state = STATE_IDLE;
+    state_idle_entry();
+    sensors_led_status(TRUE);  // LED1 ON - system ready
+    delay_ms(1000);
+    
+    // Phase 2: Start mission
+    run_pressed = TRUE;
+    state_idle_update();  // Should transition to FOLLOW_LINE
+    led_indicate_activity();
+    delay_ms(1000);
+    
+    // Phase 3: Line following
+    motor_enable();
+    MotorCmd_t cmd = motor_get_command(0b010);
+    motor_set(cmd.left_pwm, cmd.right_pwm, cmd.direction);
+    led_indicate_activity();
+    delay_ms(2000);
+    motor_stop();
+    
+    // Phase 4: Approaching station
+    fsm_transition(STATE_STATION);
+    sensors_led_status(TRUE);
+    sensors_led_action(TRUE);  // Both LEDs ON at station
+    delay_ms(1000);
+    
+    // Phase 5: Ball pickup
+    fsm_transition(STATE_STATION_STOP);
+    peripherals_grab_ball();
+    
+    // Simulate grab duration
+    for (int i = 0; i < 4; i++) {
+        led_indicate_activity();
+        delay_ms(500);
+    }
+    
+    ball_grabbed = TRUE;
+    sensors_led_action(TRUE);  // LED2 ON - ball acquired
+    
+    // Phase 6: Reverse from station
+    fsm_transition(STATE_STATION_BACK);
+    motor_reverse(SLOW_PWM);
+    
+    for (int i = 0; i < 6; i++) {
+        led_indicate_activity();
+        delay_ms(500);
+    }
+    motor_stop();
+    
+    // Phase 7: Navigation turn
+    nav_direction = NAV_RIGHT;
+    fsm_transition(STATE_NAVIGATION);
+    motor_pivot_right(BASE_PWM);
+    
+    for (int i = 0; i < 4; i++) {
+        led_indicate_activity();
+        delay_ms(500);
+    }
+    motor_stop();
+    
+    // Save checkpoint after navigation
+    fsm_save_checkpoint(CP_AFTER_NAVIGATION);
+    
+    // Phase 8: Continue to END
+    fsm_transition(STATE_FOLLOW_LINE);
+    motor_forward(BASE_PWM);
+    
+    for (int i = 0; i < 6; i++) {
+        led_indicate_activity();
+        delay_ms(500);
+    }
+    motor_stop();
+    
+    // Phase 9: Ball release
+    fsm_transition(STATE_END);
+    
+    peripherals_release_ball();
+    ball_grabbed = FALSE;
+    sensors_led_action(FALSE);  // LED2 OFF - ball released
+    
+    // Phase 10: Mission complete - reverse to clear
+    fsm_transition(STATE_END_REVERSE);
+    motor_reverse(SLOW_PWM);
+    
+    for (int i = 0; i < 4; i++) {
+        led_indicate_activity();
+        delay_ms(500);
+    }
+    motor_stop();
+    
+    // Phase 11: Error recovery test
+    fsm_handle_error(ERR_LOST_LINE);
+    led_indicate_error();
+    
+    delay_ms(1000);
+    run_pressed = TRUE;
+    state_error_update();  // Should transition to CHECKPOINT
+    
+    // Success indication
+    led_indicate_success();
+    
+    // Victory flash pattern
+    for (int i = 0; i < 10; i++) {
+        sensors_led_status(TRUE);
+        sensors_led_action(TRUE);
+        delay_ms(100);
+        sensors_led_status(FALSE);
+        sensors_led_action(FALSE);
+        delay_ms(100);
+    }
+    
+    while (TRUE) {
+        delay_ms(1000);
+    }
+}
+#endif
+
+// ============================================================================
+// MAIN FOR TESTING
+// ============================================================================
+void main(void) {
+    // Initialize system
+    system_init();
+    
+    // Wait for system to stabilize
+    delay_ms(500);
+    
+    #ifdef TEST_SENSORS
+    test_sensors();
+    #endif
+    
+    #ifdef TEST_MOTOR
+    test_motor();
+    #endif
+    
+    #ifdef TEST_ULTRASONIC
+    test_ultrasonic();
+    #endif
+    
+    #ifdef TEST_FSM_STATES
+    test_fsm_states();
+    #endif
+    
+    #ifdef TEST_CHECKPOINT
+    test_checkpoint();
+    #endif
+    
+    #ifdef TEST_BUTTON_LOGIC
+    test_button_logic();
+    #endif
+    
+    #ifdef TEST_FULL_INTEGRATION
+    test_integration();
+    #endif
+    
+    #ifdef TEST_FSM_SIMULATION
+    test_fsm_simulation();
+    #endif
+    
+    // If no test selected, show warning pattern
+    // Warning LED pattern - alternating LEDs
+    while (TRUE) {
+        sensors_led_status(TRUE);
+        sensors_led_action(FALSE);
+        delay_ms(200);
+        sensors_led_status(FALSE);
+        sensors_led_action(TRUE);
+        delay_ms(200);
+    }
+}
+
