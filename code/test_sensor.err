@@ -1,4 +1,0 @@
->>> Warning 202 "test_sensor.c" Line 46(237,242): Variable never used:   portb
-      Memory usage:   ROM=0%      RAM=1% - 1%
-      0 Errors,  1 Warnings.
-Build Successful.
